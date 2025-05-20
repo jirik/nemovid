@@ -2,11 +2,12 @@ import 'ol/ol.css';
 import './App.css';
 import OlMap from 'ol/Map.js';
 import View from 'ol/View.js';
-import { get as getProjection } from 'ol/proj';
+import { GeoJSON } from 'ol/format';
+import { DragAndDrop } from 'ol/interaction';
+import VectorLayer from 'ol/layer/Vector';
 import { register } from 'ol/proj/proj4';
+import VectorSource from 'ol/source/Vector';
 import proj4 from 'proj4';
-// import TileLayer from 'ol/layer/Tile.js';
-// import OSM from 'ol/source/OSM.js';
 import { useEffect, useRef } from 'react';
 import { assertIsDefined } from './assert.ts';
 import { loadTileLayerFromWmtsCapabilities } from './olutil.ts';
@@ -19,6 +20,7 @@ register(proj4);
 
 const App = () => {
   const mapRef = useRef<OlMap | null>(null);
+  const vectorLayerRef = useRef<VectorLayer | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -28,31 +30,32 @@ const App = () => {
         }
         return;
       }
+      const vectorLayer = new VectorLayer({
+        source: new VectorSource(),
+      });
+      vectorLayerRef.current = vectorLayer;
+
       const map = new OlMap({
         target: 'map',
         layers: [],
         view: new View({
-          zoom: 3,
           projection: 'EPSG:5514',
         }),
       });
       mapRef.current = map;
-      console.log(getProjection('EPSG:5514'));
 
       const tileLayer = await loadTileLayerFromWmtsCapabilities({
         url: 'https://ags.cuzk.gov.cz/arcgis1/rest/services/ZTM/MapServer/WMTS?request=GetCapabilities',
         layer: 'ZTM',
         matrixSet: 'default028mm',
       });
-      const layerExtent = tileLayer.getExtent();
-      assertIsDefined(layerExtent);
-      map.getView().fit(layerExtent);
-      // map.addLayer(
-      //   new TileLayer({
-      //     source: new OSM(),
-      //   }),
-      // );
+      const tileLayerExtent = tileLayer.getExtent();
+      assertIsDefined(tileLayerExtent);
+
+      map.getView().fit(tileLayerExtent);
+
       map.addLayer(tileLayer);
+      map.addLayer(vectorLayer);
     })();
     return () => {
       if (mapRef.current?.getTarget()) {
@@ -60,6 +63,27 @@ const App = () => {
       }
     };
   }, []);
+
+  useEffect(() => {
+    assertIsDefined(mapRef.current);
+    assertIsDefined(vectorLayerRef.current);
+    const map = mapRef.current;
+    const vectorLayer = vectorLayerRef.current;
+    const dnd = new DragAndDrop({
+      formatConstructors: [GeoJSON],
+    });
+    dnd.on('addfeatures', (event) => {
+      const vectorSource = vectorLayer.getSource();
+      assertIsDefined(vectorSource);
+      vectorSource.clear(true);
+      vectorSource.addFeatures(event.features || []);
+    });
+    map.addInteraction(dnd);
+    return () => {
+      map.removeInteraction(dnd);
+    };
+  }, []);
+
   return <div id="map" />;
 };
 
