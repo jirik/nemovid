@@ -5,12 +5,18 @@ import View from 'ol/View.js';
 import { GeoJSON } from 'ol/format';
 import { DragAndDrop } from 'ol/interaction';
 import VectorLayer from 'ol/layer/Vector';
+import WebGLVectorLayer from 'ol/layer/WebGLVector';
 import { register } from 'ol/proj/proj4';
 import VectorSource from 'ol/source/Vector';
+import { createDefaultStyle } from 'ol/style/flat';
 import proj4 from 'proj4';
 import { useEffect, useRef } from 'react';
 import { assertIsDefined } from './assert.ts';
-import { loadTileLayerFromWmtsCapabilities } from './olutil.ts';
+import {
+  extentsToFeatures,
+  getMainExtents,
+  loadTileLayerFromWmtsCapabilities,
+} from './olutil.ts';
 
 proj4.defs(
   'EPSG:5514',
@@ -20,7 +26,8 @@ register(proj4);
 
 const App = () => {
   const mapRef = useRef<OlMap | null>(null);
-  const vectorLayerRef = useRef<VectorLayer | null>(null);
+  const vectorLayerRef = useRef<WebGLVectorLayer | null>(null);
+  const vectorExtentLayerRef = useRef<VectorLayer | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -30,10 +37,16 @@ const App = () => {
         }
         return;
       }
-      const vectorLayer = new VectorLayer({
+      const vectorLayer = new WebGLVectorLayer({
         source: new VectorSource(),
+        style: createDefaultStyle(),
       });
       vectorLayerRef.current = vectorLayer;
+
+      const vectorExtentLayer = new VectorLayer({
+        source: new VectorSource(),
+      });
+      vectorExtentLayerRef.current = vectorExtentLayer;
 
       const map = new OlMap({
         target: 'map',
@@ -55,6 +68,7 @@ const App = () => {
       map.getView().fit(tileLayerExtent);
 
       map.addLayer(tileLayer);
+      map.addLayer(vectorExtentLayer);
       map.addLayer(vectorLayer);
     })();
     return () => {
@@ -67,8 +81,10 @@ const App = () => {
   useEffect(() => {
     assertIsDefined(mapRef.current);
     assertIsDefined(vectorLayerRef.current);
+    assertIsDefined(vectorExtentLayerRef.current);
     const map = mapRef.current;
     const vectorLayer = vectorLayerRef.current;
+    const vectorExtentLayer = vectorExtentLayerRef.current;
     const dnd = new DragAndDrop({
       formatConstructors: [GeoJSON],
     });
@@ -77,6 +93,20 @@ const App = () => {
       assertIsDefined(vectorSource);
       vectorSource.clear(true);
       vectorSource.addFeatures(event.features || []);
+
+      const mainExtents = getMainExtents({
+        features: vectorSource.getFeatures(),
+      });
+      const vectorExtentSource = vectorExtentLayer.getSource();
+      assertIsDefined(vectorExtentSource);
+      vectorExtentSource.clear(true);
+      const extentFeatures = extentsToFeatures({ extents: mainExtents });
+      vectorExtentSource.addFeatures(extentFeatures);
+
+      const vectorExtent = vectorSource.getExtent();
+      map.getView().fit(vectorExtent, {
+        duration: 1000,
+      });
     });
     map.addInteraction(dnd);
     return () => {

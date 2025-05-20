@@ -1,5 +1,8 @@
+import { Feature } from 'ol';
 import type { Extent } from 'ol/extent';
+import * as olExtent from 'ol/extent';
 import WMTSCapabilities from 'ol/format/WMTSCapabilities';
+import { fromExtent } from 'ol/geom/Polygon';
 import TileLayer from 'ol/layer/Tile';
 import WMTS, { optionsFromCapabilities } from 'ol/source/WMTS';
 import { assertIsDefined } from './assert.ts';
@@ -56,4 +59,45 @@ export const loadTileLayerFromWmtsCapabilities = async ({
     extent: bboxExtent,
   });
   return tileLayer;
+};
+
+export const getMainExtents = ({
+  features,
+}: { features: Feature[] }): Extent[] => {
+  const mainExtents: Extent[] = [];
+
+  for (const feature of features) {
+    let newExtent = feature.getGeometry()?.getExtent();
+    while (newExtent) {
+      const overlappedExtentIdx = mainExtents.findIndex((ext) => {
+        // @ts-ignore
+        return newExtent !== ext && olExtent.intersects(newExtent, ext);
+      });
+      if (overlappedExtentIdx >= 0) {
+        const overlappedExtent = mainExtents[overlappedExtentIdx];
+        if (olExtent.containsExtent(overlappedExtent, newExtent)) {
+          newExtent = undefined;
+        } else {
+          mainExtents.splice(overlappedExtentIdx, 1);
+          newExtent = olExtent.extend(overlappedExtent, newExtent);
+        }
+      } else {
+        mainExtents.push(newExtent);
+        newExtent = undefined;
+      }
+    }
+  }
+  return mainExtents;
+};
+
+export const extentsToFeatures = ({
+  extents,
+}: { extents: Extent[] }): Feature[] => {
+  return extents.map((extent) => {
+    const polygon = fromExtent(extent);
+    const feature = new Feature({
+      geometry: polygon,
+    });
+    return feature;
+  });
 };
