@@ -1,18 +1,27 @@
 import 'ol/ol.css';
 import './App.css';
+import type { FeatureLike } from 'ol/Feature';
 import OlMap from 'ol/Map.js';
 import View from 'ol/View.js';
 import { GeoJSON } from 'ol/format';
+import type { Geometry } from 'ol/geom';
+import { fromExtent } from 'ol/geom/Polygon';
 import { DragAndDrop } from 'ol/interaction';
 import VectorLayer from 'ol/layer/Vector';
 import WebGLVectorLayer from 'ol/layer/WebGLVector';
 import { register } from 'ol/proj/proj4';
 import VectorSource from 'ol/source/Vector';
+import { Stroke, Style } from 'ol/style';
 import { createDefaultStyle } from 'ol/style/flat';
 import proj4 from 'proj4';
 import { useEffect, useRef } from 'react';
+import {
+  MIN_FEATURE_EXTENT_RADIUS,
+  MIN_MAIN_EXTENT_RADIUS_PX,
+} from '../constants.ts';
 import { assertIsDefined } from './assert.ts';
 import {
+  assertMinExtentRadius,
   extentsToFeatures,
   getMainExtents,
   loadTileLayerFromWmtsCapabilities,
@@ -43,8 +52,28 @@ const App = () => {
       });
       vectorLayerRef.current = vectorLayer;
 
+      const extentStyle = [
+        new Style({
+          stroke: new Stroke({
+            color: '#ffffffaa',
+            width: 5,
+          }),
+          zIndex: 1,
+        }),
+        new Style({
+          stroke: new Stroke({
+            color: '#c513cd',
+            width: 2,
+          }),
+          zIndex: 2,
+        }),
+      ];
+
       const vectorExtentLayer = new VectorLayer({
         source: new VectorSource(),
+        style: extentStyle,
+        updateWhileAnimating: true,
+        updateWhileInteracting: true,
       });
       vectorExtentLayerRef.current = vectorExtentLayer;
 
@@ -70,6 +99,26 @@ const App = () => {
       map.addLayer(tileLayer);
       map.addLayer(vectorExtentLayer);
       map.addLayer(vectorLayer);
+
+      map.getView().on('change:resolution', (evt) => {
+        const view = evt.target as View;
+        const resolution = view.getResolution();
+        assertIsDefined(resolution);
+        const geometryFn = (feature: FeatureLike): Geometry | undefined => {
+          const geom = feature.getGeometry();
+          const extent = geom?.getExtent();
+          assertIsDefined(extent);
+          const minExtentRadius = MIN_MAIN_EXTENT_RADIUS_PX * resolution;
+          const newExtent = assertMinExtentRadius({
+            extent: extent.concat(),
+            minExtentRadius,
+          });
+          return fromExtent(newExtent);
+        };
+        for (const style of extentStyle) {
+          style.setGeometry(geometryFn);
+        }
+      });
     })();
     return () => {
       if (mapRef.current?.getTarget()) {
@@ -96,6 +145,7 @@ const App = () => {
 
       const mainExtents = getMainExtents({
         features: vectorSource.getFeatures(),
+        minExtentRadius: MIN_FEATURE_EXTENT_RADIUS, // meters
       });
       const vectorExtentSource = vectorExtentLayer.getSource();
       assertIsDefined(vectorExtentSource);
@@ -103,9 +153,15 @@ const App = () => {
       const extentFeatures = extentsToFeatures({ extents: mainExtents });
       vectorExtentSource.addFeatures(extentFeatures);
 
-      const vectorExtent = vectorSource.getExtent();
+      const vectorExtent = vectorExtentSource.getExtent();
       map.getView().fit(vectorExtent, {
         duration: 1000,
+        padding: [
+          MIN_MAIN_EXTENT_RADIUS_PX * 2,
+          MIN_MAIN_EXTENT_RADIUS_PX * 2,
+          MIN_MAIN_EXTENT_RADIUS_PX * 2,
+          MIN_MAIN_EXTENT_RADIUS_PX * 2,
+        ],
       });
     });
     map.addInteraction(dnd);

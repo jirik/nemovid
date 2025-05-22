@@ -63,11 +63,18 @@ export const loadTileLayerFromWmtsCapabilities = async ({
 
 export const getMainExtents = ({
   features,
-}: { features: Feature[] }): Extent[] => {
+  minExtentRadius,
+}: { features: Feature[]; minExtentRadius: number }): Extent[] => {
   const mainExtents: Extent[] = [];
 
   for (const feature of features) {
-    let newExtent = feature.getGeometry()?.getExtent();
+    const featureExtent = feature.getGeometry()?.getExtent();
+    let newExtent = featureExtent
+      ? assertMinExtentRadius({
+          extent: featureExtent.concat(),
+          minExtentRadius,
+        })
+      : undefined;
     while (newExtent) {
       const overlappedExtentIdx = mainExtents.findIndex((ext) => {
         // @ts-ignore
@@ -100,4 +107,19 @@ export const extentsToFeatures = ({
     });
     return feature;
   });
+};
+
+export const assertMinExtentRadius = ({
+  extent,
+  minExtentRadius,
+}: { extent: Extent; minExtentRadius: number }): Extent => {
+  const minExtent = olExtent.buffer(
+    olExtent.boundingExtent([olExtent.getCenter(extent)]),
+    minExtentRadius,
+  );
+
+  if (!olExtent.containsExtent(extent, minExtent)) {
+    olExtent.extend(extent, minExtent);
+  }
+  return extent;
 };
