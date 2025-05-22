@@ -20,6 +20,7 @@ import {
   MIN_FEATURE_EXTENT_RADIUS,
   MIN_MAIN_EXTENT_RADIUS_PX,
 } from '../constants.ts';
+import InfoBar from './InfoBar.tsx';
 import { assertFeatures, assertIsDefined } from './assert.ts';
 import {
   assertMinExtentRadius,
@@ -195,11 +196,7 @@ const App = () => {
   return (
     <main>
       <div id="map" />
-      <div id="infoBar">
-        <h3>
-          Začněte tím, že soubor *.geojson přetáhnete nad mapu (drag & drop).
-        </h3>
-      </div>
+      <InfoBar />
     </main>
   );
 };
