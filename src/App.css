@@ -1,12 +1,28 @@
+:root {
+  --main-bg-color: #cccccc;
+}
+
 html,
 body {
   margin: 0;
   height: 100%;
 }
 
-#map {
+main {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 100%;
+  display: flex;
+}
+
+#map {
+  flex-grow: 1;
+}
+
+#infoBar {
+  width: 30vw;
+  min-width: 300px;
+  padding: 8px;
+  background-color: var(--main-bg-color);
 }

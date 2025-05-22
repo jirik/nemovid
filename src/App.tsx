@@ -170,7 +170,16 @@ const App = () => {
     };
   }, []);
 
-  return <div id="map" />;
+  return (
+    <main>
+      <div id="map" />
+      <div id="infoBar">
+        <h3>
+          Začněte tím, že soubor *.geojson přetáhnete nad mapu (drag & drop).
+        </h3>
+      </div>
+    </main>
+  );
 };
 
 export default App;
