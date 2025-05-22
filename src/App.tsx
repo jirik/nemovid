@@ -3,6 +3,7 @@ import './App.css';
 import type { FeatureLike } from 'ol/Feature';
 import OlMap from 'ol/Map.js';
 import View from 'ol/View.js';
+import * as olExtent from 'ol/extent';
 import { GeoJSON } from 'ol/format';
 import type { Geometry } from 'ol/geom';
 import { fromExtent } from 'ol/geom/Polygon';
@@ -19,13 +20,14 @@ import {
   MIN_FEATURE_EXTENT_RADIUS,
   MIN_MAIN_EXTENT_RADIUS_PX,
 } from '../constants.ts';
-import { assertIsDefined } from './assert.ts';
+import { assertFeatures, assertIsDefined } from './assert.ts';
 import {
   assertMinExtentRadius,
   extentsToFeatures,
   getMainExtents,
   loadTileLayerFromWmtsCapabilities,
 } from './olutil.ts';
+import { useAppStore } from './store.ts';
 
 proj4.defs(
   'EPSG:5514',
@@ -34,6 +36,8 @@ proj4.defs(
 register(proj4);
 
 const App = () => {
+  const fileOpened = useAppStore((state) => state.fileOpened);
+  const features = useAppStore((state) => state.features);
   const mapRef = useRef<OlMap | null>(null);
   const vectorLayerRef = useRef<WebGLVectorLayer | null>(null);
   const vectorExtentLayerRef = useRef<VectorLayer | null>(null);
@@ -132,28 +136,50 @@ const App = () => {
     assertIsDefined(vectorLayerRef.current);
     assertIsDefined(vectorExtentLayerRef.current);
     const map = mapRef.current;
-    const vectorLayer = vectorLayerRef.current;
-    const vectorExtentLayer = vectorExtentLayerRef.current;
     const dnd = new DragAndDrop({
       formatConstructors: [GeoJSON],
     });
     dnd.on('addfeatures', (event) => {
-      const vectorSource = vectorLayer.getSource();
-      assertIsDefined(vectorSource);
-      vectorSource.clear(true);
-      vectorSource.addFeatures(event.features || []);
+      const newFeatures = event.features || [];
+      assertFeatures(newFeatures);
+      fileOpened({ name: event.file.name, features: newFeatures });
+    });
+    map.addInteraction(dnd);
+    return () => {
+      map.removeInteraction(dnd);
+    };
+  }, [fileOpened]);
 
-      const mainExtents = getMainExtents({
-        features: vectorSource.getFeatures(),
-        minExtentRadius: MIN_FEATURE_EXTENT_RADIUS, // meters
-      });
-      const vectorExtentSource = vectorExtentLayer.getSource();
-      assertIsDefined(vectorExtentSource);
-      vectorExtentSource.clear(true);
-      const extentFeatures = extentsToFeatures({ extents: mainExtents });
-      vectorExtentSource.addFeatures(extentFeatures);
+  useEffect(() => {
+    assertIsDefined(mapRef.current);
+    assertIsDefined(vectorLayerRef.current);
+    assertIsDefined(vectorExtentLayerRef.current);
+    const map = mapRef.current;
+    const vectorLayer = vectorLayerRef.current;
+    const vectorExtentLayer = vectorExtentLayerRef.current;
+    const vectorSource = vectorLayer.getSource();
+    assertIsDefined(vectorSource);
+    const vectorExtentSource = vectorExtentLayer.getSource();
+    assertIsDefined(vectorExtentSource);
 
-      const vectorExtent = vectorExtentSource.getExtent();
+    // clear features
+    vectorSource.clear(true);
+    vectorExtentSource.clear(true);
+
+    // show features
+    vectorSource.addFeatures(features);
+
+    // show feature extents
+    const mainExtents = getMainExtents({
+      features,
+      minExtentRadius: MIN_FEATURE_EXTENT_RADIUS, // meters
+    });
+    const extentFeatures = extentsToFeatures({ extents: mainExtents });
+    vectorExtentSource.addFeatures(extentFeatures);
+
+    // zoom
+    const vectorExtent = vectorExtentSource.getExtent();
+    if (!olExtent.isEmpty(vectorExtent)) {
       map.getView().fit(vectorExtent, {
         duration: 1000,
         padding: [
@@ -163,12 +189,8 @@ const App = () => {
           MIN_MAIN_EXTENT_RADIUS_PX * 2,
         ],
       });
-    });
-    map.addInteraction(dnd);
-    return () => {
-      map.removeInteraction(dnd);
-    };
-  }, []);
+    }
+  }, [features]);
 
   return (
     <main>
