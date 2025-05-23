@@ -13,22 +13,18 @@ import WebGLVectorLayer from 'ol/layer/WebGLVector';
 import { register } from 'ol/proj/proj4';
 import VectorSource from 'ol/source/Vector';
 import { Stroke, Style } from 'ol/style';
-import { createDefaultStyle } from 'ol/style/flat';
+import { type FlatStyle, createDefaultStyle } from 'ol/style/flat';
 import proj4 from 'proj4';
 import { useEffect, useRef } from 'react';
-import {
-  MIN_FEATURE_EXTENT_RADIUS,
-  MIN_MAIN_EXTENT_RADIUS_PX,
-} from '../constants.ts';
+import { MIN_MAIN_EXTENT_RADIUS_PX } from '../constants.ts';
 import InfoBar from './InfoBar.tsx';
 import { assertFeatures, assertIsDefined } from './assert.ts';
+import { getParcelsByExtent, parcelsGmlToFeatures } from './cuzk.ts';
 import {
   assertMinExtentRadius,
-  extentsToFeatures,
-  getMainExtents,
   loadTileLayerFromWmtsCapabilities,
 } from './olutil.ts';
-import { useAppStore } from './store.ts';
+import { getMainExtentFeatures, getMainExtents, useAppStore } from './store.ts';
 
 proj4.defs(
   'EPSG:5514',
@@ -38,10 +34,15 @@ register(proj4);
 
 const App = () => {
   const fileOpened = useAppStore((state) => state.fileOpened);
+  const parcelsLoaded = useAppStore((state) => state.parcelsLoaded);
+  const extentFeatures = useAppStore(getMainExtentFeatures);
+  const mainExtents = useAppStore(getMainExtents);
   const features = useAppStore((state) => state.features);
+  const parcels = useAppStore((state) => state.parcels);
   const mapRef = useRef<OlMap | null>(null);
   const vectorLayerRef = useRef<WebGLVectorLayer | null>(null);
   const vectorExtentLayerRef = useRef<VectorLayer | null>(null);
+  const parcelLayerRef = useRef<WebGLVectorLayer | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -51,9 +52,17 @@ const App = () => {
         }
         return;
       }
+
+      const featureStrokeColor = '#c513cd';
+      const featureStyle: FlatStyle = {
+        'stroke-color': featureStrokeColor,
+        'stroke-width': 1,
+        'fill-color': 'rgba(255,255,255,0.4)',
+      };
+
       const vectorLayer = new WebGLVectorLayer({
         source: new VectorSource(),
-        style: createDefaultStyle(),
+        style: featureStyle,
       });
       vectorLayerRef.current = vectorLayer;
 
@@ -67,12 +76,19 @@ const App = () => {
         }),
         new Style({
           stroke: new Stroke({
-            color: '#c513cd',
+            color: featureStrokeColor,
             width: 2,
+            lineDash: [5, 5],
           }),
           zIndex: 2,
         }),
       ];
+
+      const parcelLayer = new WebGLVectorLayer({
+        source: new VectorSource(),
+        style: createDefaultStyle(),
+      });
+      parcelLayerRef.current = parcelLayer;
 
       const vectorExtentLayer = new VectorLayer({
         source: new VectorSource(),
@@ -102,6 +118,7 @@ const App = () => {
       map.getView().fit(tileLayerExtent);
 
       map.addLayer(tileLayer);
+      map.addLayer(parcelLayer);
       map.addLayer(vectorExtentLayer);
       map.addLayer(vectorLayer);
 
@@ -155,27 +172,27 @@ const App = () => {
     assertIsDefined(mapRef.current);
     assertIsDefined(vectorLayerRef.current);
     assertIsDefined(vectorExtentLayerRef.current);
+    assertIsDefined(parcelLayerRef.current);
     const map = mapRef.current;
     const vectorLayer = vectorLayerRef.current;
     const vectorExtentLayer = vectorExtentLayerRef.current;
+    const parcelLayer = parcelLayerRef.current;
     const vectorSource = vectorLayer.getSource();
     assertIsDefined(vectorSource);
     const vectorExtentSource = vectorExtentLayer.getSource();
     assertIsDefined(vectorExtentSource);
+    const parcelSource = parcelLayer.getSource();
+    assertIsDefined(parcelSource);
 
     // clear features
     vectorSource.clear(true);
     vectorExtentSource.clear(true);
+    parcelSource.clear();
 
     // show features
     vectorSource.addFeatures(features);
 
     // show feature extents
-    const mainExtents = getMainExtents({
-      features,
-      minExtentRadius: MIN_FEATURE_EXTENT_RADIUS, // meters
-    });
-    const extentFeatures = extentsToFeatures({ extents: mainExtents });
     vectorExtentSource.addFeatures(extentFeatures);
 
     // zoom
@@ -191,7 +208,31 @@ const App = () => {
         ],
       });
     }
-  }, [features]);
+  }, [features, extentFeatures]);
+
+  useEffect(() => {
+    (async () => {
+      if (mainExtents.length > 0) {
+        const results = await Promise.all(
+          mainExtents.map((e) => getParcelsByExtent({ extent: e })),
+        );
+        const parcelGroups = results.map((res) =>
+          parcelsGmlToFeatures({ gml: res }),
+        );
+        parcelsLoaded({ parcels: parcelGroups });
+      } else {
+        parcelsLoaded({ parcels: [[]] });
+      }
+    })();
+  }, [mainExtents, parcelsLoaded]);
+
+  useEffect(() => {
+    assertIsDefined(parcelLayerRef.current);
+    const parcelLayer = parcelLayerRef.current;
+    const parcelSource = parcelLayer.getSource();
+    assertIsDefined(parcelSource);
+    parcelSource.addFeatures(Object.values(parcels || {}));
+  }, [parcels]);
 
   return (
     <main>
