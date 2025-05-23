@@ -13,12 +13,11 @@ import WebGLVectorLayer from 'ol/layer/WebGLVector';
 import { register } from 'ol/proj/proj4';
 import VectorSource from 'ol/source/Vector';
 import { Stroke, Style } from 'ol/style';
-import type { FlatStyle } from 'ol/style/flat';
 import proj4 from 'proj4';
 import { useEffect, useRef } from 'react';
 import { MIN_MAIN_EXTENT_RADIUS_PX } from '../constants.ts';
 import InfoBar from './InfoBar.tsx';
-import { assertFeatures, assertIsDefined } from './assert.ts';
+import { assertFeature, assertFeatures, assertIsDefined } from './assert.ts';
 import { getParcelsByExtent, parcelsGmlToFeatures } from './cuzk.ts';
 import {
   assertMinExtentRadius,
@@ -35,9 +34,12 @@ register(proj4);
 const App = () => {
   const fileOpened = useAppStore((state) => state.fileOpened);
   const parcelsLoaded = useAppStore((state) => state.parcelsLoaded);
+  const mapPointerMove = useAppStore((state) => state.mapPointerMove);
   const extentFeatures = useAppStore(getMainExtentFeatures);
   const mainExtents = useAppStore(getMainExtents);
   const features = useAppStore((state) => state.features);
+  const highlightedParcelId = useAppStore((state) => state.highlightedParcel);
+  const highlightedFeatureId = useAppStore((state) => state.highlightedFeature);
   const parcels = useAppStore((state) => state.parcels);
   const mapRef = useRef<OlMap | null>(null);
   const vectorLayerRef = useRef<WebGLVectorLayer | null>(null);
@@ -54,15 +56,30 @@ const App = () => {
       }
 
       const featureStrokeColor = '#c513cd';
-      const featureStyle: FlatStyle = {
-        'stroke-color': featureStrokeColor,
-        'stroke-width': 1,
-        'fill-color': 'rgba(255,255,255,0.4)',
-      };
 
       const vectorLayer = new WebGLVectorLayer({
         source: new VectorSource(),
-        style: featureStyle,
+        style: [
+          {
+            filter: ['==', ['var', 'highlightedId'], ['get', 'fid']],
+            style: {
+              'stroke-color': featureStrokeColor,
+              'stroke-width': 3,
+              'fill-color': 'rgba(255,255,255,0.1)',
+            },
+          },
+          {
+            else: true,
+            style: {
+              'stroke-color': featureStrokeColor,
+              'stroke-width': 1,
+              'fill-color': 'rgba(255,255,255,0.4)',
+            },
+          },
+        ],
+        variables: {
+          highlightedId: -1,
+        },
       });
       vectorLayerRef.current = vectorLayer;
 
@@ -86,10 +103,26 @@ const App = () => {
 
       const parcelLayer = new WebGLVectorLayer({
         source: new VectorSource(),
-        style: {
-          'stroke-color': '#3399CC',
-          'stroke-width': 1,
-          'fill-color': 'rgba(255,255,000,0.4)',
+        style: [
+          {
+            filter: ['==', ['var', 'highlightedId'], ['id']],
+            style: {
+              'stroke-color': '#3399CC',
+              'stroke-width': 3,
+              'fill-color': 'rgba(255,255,000,0.1)',
+            },
+          },
+          {
+            else: true,
+            style: {
+              'stroke-color': '#3399CC',
+              'stroke-width': 1,
+              'fill-color': 'rgba(255,255,000,0.4)',
+            },
+          },
+        ],
+        variables: {
+          highlightedId: '',
         },
       });
       parcelLayerRef.current = parcelLayer;
@@ -242,6 +275,53 @@ const App = () => {
     parcelSource.addFeatures(Object.values(parcels || {}));
   }, [parcels]);
 
+  useEffect(() => {
+    assertIsDefined(mapRef.current);
+    assertIsDefined(vectorLayerRef.current);
+    assertIsDefined(parcelLayerRef.current);
+    const map = mapRef.current;
+    const vectorLayer = vectorLayerRef.current;
+    const parcelLayer = parcelLayerRef.current;
+
+    map.on('pointermove', (evt) => {
+      if (evt.dragging) {
+        return;
+      }
+      const pixel = evt.pixel;
+      const feature = map.forEachFeatureAtPixel(pixel, (feature) => feature, {
+        layerFilter: (l) => l === vectorLayer,
+      });
+      if (feature) {
+        assertFeature(feature);
+      }
+      const parcel = map.forEachFeatureAtPixel(pixel, (feature) => feature, {
+        layerFilter: (l) => l === parcelLayer,
+      });
+      if (parcel) {
+        assertFeature(parcel);
+      }
+      mapPointerMove({
+        highlightedParcel: parcel,
+        highlightedFeature: feature,
+      });
+    });
+  }, [mapPointerMove]);
+
+  useEffect(() => {
+    assertIsDefined(parcelLayerRef.current);
+    const parcelLayer = parcelLayerRef.current;
+    parcelLayer.updateStyleVariables({
+      highlightedId: highlightedParcelId || '',
+    });
+  }, [highlightedParcelId]);
+
+  useEffect(() => {
+    assertIsDefined(vectorLayerRef.current);
+    const vectorLayer = vectorLayerRef.current;
+    vectorLayer.updateStyleVariables({
+      highlightedId: highlightedFeatureId == null ? -1 : highlightedFeatureId,
+    });
+  }, [highlightedFeatureId]);
   return (
     <main>
       <div id="map" />

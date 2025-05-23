@@ -11,6 +11,8 @@ interface State {
   fileName: string | null;
   features: Feature[];
   parcels: Record<string, Feature> | null;
+  highlightedParcel: string | null;
+  highlightedFeature: number | null;
 }
 
 interface Actions {
@@ -22,6 +24,13 @@ interface Actions {
     parcels,
     featureSource,
   }: { parcels: Feature[][]; featureSource: VectorSource }) => void;
+  mapPointerMove: ({
+    highlightedParcel,
+    highlightedFeature,
+  }: {
+    highlightedParcel?: Feature | null;
+    highlightedFeature?: Feature | null;
+  }) => void;
 }
 
 export const useAppStore = create<State & Actions>()(
@@ -29,6 +38,8 @@ export const useAppStore = create<State & Actions>()(
     fileName: null,
     features: [],
     parcels: null,
+    highlightedParcel: null,
+    highlightedFeature: null,
     fileOpened: ({ name, features }: { name: string; features: Feature[] }) =>
       set((state) => {
         state.fileName = name;
@@ -61,6 +72,20 @@ export const useAppStore = create<State & Actions>()(
           },
           {},
         );
+      }),
+    mapPointerMove: ({
+      highlightedParcel,
+      highlightedFeature,
+    }: {
+      highlightedParcel?: Feature | null;
+      highlightedFeature?: Feature | null;
+    }) =>
+      set((state) => {
+        state.highlightedParcel =
+          (highlightedParcel?.getId() as string) || null;
+        const featureFid = highlightedFeature?.get('fid');
+        state.highlightedFeature =
+          typeof featureFid === 'number' ? featureFid : null;
       }),
   })),
 );
