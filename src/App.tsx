@@ -65,7 +65,7 @@ const App = () => {
             style: {
               'stroke-color': featureStrokeColor,
               'stroke-width': 3,
-              'fill-color': 'rgba(255,255,255,0.1)',
+              'fill-color': 'rgba(255,255,255,0.4)',
             },
           },
           {
@@ -107,15 +107,15 @@ const App = () => {
           {
             filter: ['==', ['var', 'highlightedId'], ['id']],
             style: {
-              'stroke-color': '#3399CC',
-              'stroke-width': 3,
-              'fill-color': 'rgba(255,255,000,0.1)',
+              'stroke-color': '#ffff00',
+              'stroke-width': 4,
+              'fill-color': 'rgba(255,255,000,0.4)',
             },
           },
           {
             else: true,
             style: {
-              'stroke-color': '#3399CC',
+              'stroke-color': '#ffff00',
               'stroke-width': 1,
               'fill-color': 'rgba(255,255,000,0.4)',
             },
@@ -145,9 +145,16 @@ const App = () => {
       mapRef.current = map;
 
       const tileLayer = await loadTileLayerFromWmtsCapabilities({
-        url: 'https://ags.cuzk.gov.cz/arcgis1/rest/services/ZTM/MapServer/WMTS?request=GetCapabilities',
-        layer: 'ZTM',
+        url: 'https://ags.cuzk.gov.cz/arcgis1/rest/services/ORTOFOTO/MapServer/WMTS?request=GetCapabilities',
+        layer: 'ORTOFOTO',
+        // url: 'https://ags.cuzk.gov.cz/arcgis1/rest/services/ZTM/MapServer/WMTS?request=GetCapabilities',
+        // layer: 'ZTM',
         matrixSet: 'default028mm',
+      });
+      const tileLayer2 = await loadTileLayerFromWmtsCapabilities({
+        url: 'https://services.cuzk.cz/wmts/local-km-wmts-jtsk.asp?request=GetCapabilities&service=WMTS',
+        layer: 'KN_I',
+        matrixSet: 'KN_I',
       });
       const tileLayerExtent = tileLayer.getExtent();
       assertIsDefined(tileLayerExtent);
@@ -155,6 +162,7 @@ const App = () => {
       map.getView().fit(tileLayerExtent);
 
       map.addLayer(tileLayer);
+      map.addLayer(tileLayer2);
       map.addLayer(parcelLayer);
       map.addLayer(vectorExtentLayer);
       map.addLayer(vectorLayer);
@@ -236,7 +244,7 @@ const App = () => {
     const vectorExtent = vectorExtentSource.getExtent();
     if (!olExtent.isEmpty(vectorExtent)) {
       map.getView().fit(vectorExtent, {
-        duration: 1000,
+        duration: 2000,
         padding: [
           MIN_MAIN_EXTENT_RADIUS_PX * 2,
           MIN_MAIN_EXTENT_RADIUS_PX * 2,
