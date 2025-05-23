@@ -13,7 +13,7 @@ import WebGLVectorLayer from 'ol/layer/WebGLVector';
 import { register } from 'ol/proj/proj4';
 import VectorSource from 'ol/source/Vector';
 import { Stroke, Style } from 'ol/style';
-import { type FlatStyle, createDefaultStyle } from 'ol/style/flat';
+import type { FlatStyle } from 'ol/style/flat';
 import proj4 from 'proj4';
 import { useEffect, useRef } from 'react';
 import { MIN_MAIN_EXTENT_RADIUS_PX } from '../constants.ts';
@@ -86,7 +86,11 @@ const App = () => {
 
       const parcelLayer = new WebGLVectorLayer({
         source: new VectorSource(),
-        style: createDefaultStyle(),
+        style: {
+          'stroke-color': '#3399CC',
+          'stroke-width': 1,
+          'fill-color': 'rgba(255,255,000,0.4)',
+        },
       });
       parcelLayerRef.current = parcelLayer;
 
@@ -212,6 +216,10 @@ const App = () => {
 
   useEffect(() => {
     (async () => {
+      assertIsDefined(vectorLayerRef.current);
+      const vectorLayer = vectorLayerRef.current;
+      const vectorSource = vectorLayer.getSource();
+      assertIsDefined(vectorSource);
       if (mainExtents.length > 0) {
         const results = await Promise.all(
           mainExtents.map((e) => getParcelsByExtent({ extent: e })),
@@ -219,9 +227,9 @@ const App = () => {
         const parcelGroups = results.map((res) =>
           parcelsGmlToFeatures({ gml: res }),
         );
-        parcelsLoaded({ parcels: parcelGroups });
+        parcelsLoaded({ parcels: parcelGroups, featureSource: vectorSource });
       } else {
-        parcelsLoaded({ parcels: [[]] });
+        parcelsLoaded({ parcels: [[]], featureSource: vectorSource });
       }
     })();
   }, [mainExtents, parcelsLoaded]);

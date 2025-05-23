@@ -1,9 +1,27 @@
-import { Feature } from 'ol';
+import type JstsGeometry from 'jsts/org/locationtech/jts/geom/Geometry.js';
+import GeometryFactory from 'jsts/org/locationtech/jts/geom/GeometryFactory.js';
+import JstsPolygon from 'jsts/org/locationtech/jts/geom/Polygon.js';
+import OL3Parser from 'jsts/org/locationtech/jts/io/OL3Parser.js';
+import JstsBufferOp from 'jsts/org/locationtech/jts/operation/buffer/BufferOp.js';
+import JstsRelatedOp from 'jsts/org/locationtech/jts/operation/relate/RelateOp.js';
+import JstsIsValidOp from 'jsts/org/locationtech/jts/operation/valid/IsValidOp.js';
+import { Feature, getUid } from 'ol';
 import type { Extent } from 'ol/extent';
 import * as olExtent from 'ol/extent';
 import WMTSCapabilities from 'ol/format/WMTSCapabilities';
+import {
+  GeometryCollection,
+  LineString,
+  LinearRing,
+  MultiLineString,
+  MultiPoint,
+  MultiPolygon,
+  Point,
+  Polygon,
+} from 'ol/geom';
 import { fromExtent } from 'ol/geom/Polygon';
 import TileLayer from 'ol/layer/Tile';
+import type VectorSource from 'ol/source/Vector';
 import WMTS, { optionsFromCapabilities } from 'ol/source/WMTS';
 import { assertIsDefined } from './assert.ts';
 
@@ -122,4 +140,70 @@ export const assertMinExtentRadius = ({
     olExtent.extend(extent, minExtent);
   }
   return extent;
+};
+
+export const getIntersectedParcels = ({
+  parcels,
+  featureSource,
+}: {
+  parcels: Record<string, Feature>;
+  featureSource: VectorSource;
+}): Feature[] => {
+  const featuresByParcel: Record<string, Feature[]> = {};
+
+  const parcelsByExtent = Object.values(parcels).filter((parcel) => {
+    const parcelGeom = parcel.getGeometry();
+    assertIsDefined(parcelGeom);
+    const parcelId = parcel.getId() as string;
+    const foundFeatures = featureSource.getFeaturesInExtent(
+      parcelGeom.getExtent(),
+    );
+    if (foundFeatures.length > 0) {
+      featuresByParcel[parcelId] = foundFeatures;
+    }
+    return foundFeatures.length > 0;
+  });
+
+  const geometryFactory = new GeometryFactory();
+  const parser = new OL3Parser(geometryFactory, undefined);
+  parser.inject(
+    Point,
+    LineString,
+    LinearRing,
+    Polygon,
+    MultiPoint,
+    MultiLineString,
+    MultiPolygon,
+    GeometryCollection,
+  );
+
+  const featuresJstsGeoms: Record<string, JstsGeometry> = {};
+
+  const parcelsByGeom = parcelsByExtent.filter((parcel) => {
+    const parcelJstsGeom = parser.read(parcel.getGeometry());
+    console.assert(parcelJstsGeom instanceof JstsPolygon);
+    const parcelId = parcel.getId() as string;
+    const parcelFeaturesByExtent = featuresByParcel[parcelId];
+    const intersects = parcelFeaturesByExtent.some((feature) => {
+      const featureUid = getUid(feature);
+      if (!(featureUid in featuresJstsGeoms)) {
+        const geom = parser.read(feature.getGeometry());
+        featuresJstsGeoms[featureUid] = JstsIsValidOp.isValid(geom)
+          ? geom
+          : JstsBufferOp.bufferOp(geom, 0);
+      }
+      const featureJstsGeom = featuresJstsGeoms[featureUid];
+      try {
+        return JstsRelatedOp.intersects(parcelJstsGeom, featureJstsGeom);
+      } catch (e) {
+        console.error(
+          `Some problem when intersecting ${parcelId} x ${featureUid}`,
+        );
+        console.error(e);
+      }
+    });
+    return intersects;
+  });
+
+  return parcelsByGeom;
 };

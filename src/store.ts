@@ -1,10 +1,11 @@
 import type { Feature } from 'ol';
+import type VectorSource from 'ol/source/Vector';
 import { createSelector } from 'reselect';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { MIN_FEATURE_EXTENT_RADIUS } from '../constants.ts';
 import * as olUtil from './olutil.ts';
-import { extentsToFeatures } from './olutil.ts';
+import { extentsToFeatures, getIntersectedParcels } from './olutil.ts';
 
 interface State {
   fileName: string | null;
@@ -17,7 +18,10 @@ interface Actions {
     name,
     features,
   }: { name: string; features: Feature[] }) => void;
-  parcelsLoaded: ({ parcels }: { parcels: Feature[][] }) => void;
+  parcelsLoaded: ({
+    parcels,
+    featureSource,
+  }: { parcels: Feature[][]; featureSource: VectorSource }) => void;
 }
 
 export const useAppStore = create<State & Actions>()(
@@ -31,17 +35,32 @@ export const useAppStore = create<State & Actions>()(
         state.features = features;
         state.parcels = null;
       }),
-    parcelsLoaded: ({ parcels }: { parcels: Feature[][] }) =>
+    parcelsLoaded: ({
+      parcels,
+      featureSource,
+    }: { parcels: Feature[][]; featureSource: VectorSource }) =>
       set((state) => {
-        state.parcels = {};
+        const parcelsDict: Record<string, Feature> = {};
         for (const parcelGroup of parcels) {
           for (const parcel of parcelGroup) {
             const parcelId = parcel.getId();
-            if (typeof parcelId === 'string' && !(parcelId in state.parcels)) {
-              state.parcels[parcelId] = parcel;
+            if (typeof parcelId === 'string' && !(parcelId in parcelsDict)) {
+              parcelsDict[parcelId] = parcel;
             }
           }
         }
+        const intersectedParcels = getIntersectedParcels({
+          parcels: parcelsDict,
+          featureSource,
+        });
+        state.parcels = intersectedParcels.reduce(
+          (prev: Record<string, Feature>, parcel) => {
+            const parcelId = parcel.getId() as string;
+            prev[parcelId] = parcel;
+            return prev;
+          },
+          {},
+        );
       }),
   })),
 );
