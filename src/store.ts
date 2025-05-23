@@ -4,6 +4,7 @@ import { createSelector } from 'reselect';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { MIN_FEATURE_EXTENT_RADIUS } from '../constants.ts';
+import { assertIsDefined } from './assert.ts';
 import * as olUtil from './olutil.ts';
 import { extentsToFeatures, getIntersectedParcels } from './olutil.ts';
 
@@ -108,5 +109,44 @@ export const getMainExtentFeatures = createAppSelector(
   (mainExtents) => {
     const extentFeatures = extentsToFeatures({ extents: mainExtents });
     return extentFeatures;
+  },
+);
+
+export type Zoning = {
+  id: string;
+  title: string;
+  parcels: Feature[];
+};
+
+export const getParcelsByZoning = createAppSelector(
+  [(state) => state.parcels],
+  (parcels) => {
+    const zonings: Record<string, Zoning> = {};
+    for (const parcel of Object.values(parcels || {})) {
+      const zoningUrl = parcel.get('zoning')['xlink:href'] as string;
+      const zoningTitle = parcel.get('zoning')['xlink:title'] as string;
+      const zoningId = URL.parse(zoningUrl)?.searchParams.get('Id');
+      assertIsDefined(zoningId);
+      if (!(zoningId in zonings)) {
+        zonings[zoningId] = {
+          id: zoningId,
+          title: zoningTitle,
+          parcels: [],
+        };
+      }
+      zonings[zoningId].parcels.push(parcel);
+    }
+    for (const zoning of Object.values(zonings)) {
+      zoning.parcels.sort((a, b) => {
+        const aParts = (a.get('label') as string)
+          .split(/\D+/)
+          .map((s) => Number.parseInt(s));
+        const bParts = (b.get('label') as string)
+          .split(/\D+/)
+          .map((s) => Number.parseInt(s));
+        return aParts[0] - bParts[0] || aParts[1] - bParts[1];
+      });
+    }
+    return zonings;
   },
 );
