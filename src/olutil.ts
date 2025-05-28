@@ -85,12 +85,13 @@ export const getMainExtents = ({
 
   for (const feature of features) {
     const featureExtent = feature.getGeometry()?.getExtent();
-    let newExtent = featureExtent
-      ? assertMinExtentRadius({
-          extent: featureExtent.concat(),
-          minExtentRadius,
-        })
-      : undefined;
+    let newExtent =
+      featureExtent && !olExtent.isEmpty(featureExtent)
+        ? assertMinExtentRadius({
+            extent: featureExtent.concat(),
+            minExtentRadius,
+          })
+        : undefined;
     while (newExtent) {
       const overlappedExtentIdx = mainExtents.findIndex((ext) => {
         // @ts-ignore
@@ -186,7 +187,14 @@ export const getIntersectedParcels = ({
       const featureUid = getUid(feature);
       if (!(featureUid in featuresJstsGeoms)) {
         const geom = parser.read(feature.getGeometry());
-        featuresJstsGeoms[featureUid] = JstsIsValidOp.isValid(geom)
+        const geomIsValid = JstsIsValidOp.isValid(geom);
+        console.assert(
+          geomIsValid,
+          'Expected valid geometry, but found',
+          geom,
+          feature,
+        );
+        featuresJstsGeoms[featureUid] = geomIsValid
           ? geom
           : JstsBufferOp.bufferOp(geom, 0);
       }

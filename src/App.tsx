@@ -233,6 +233,7 @@ const App = () => {
     vectorSource.clear(true);
     vectorExtentSource.clear(true);
     parcelSource.clear();
+    map.renderSync();
 
     // show features
     vectorSource.addFeatures(features);
