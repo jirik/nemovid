@@ -4,6 +4,7 @@ import WFS from 'ol/format/WFS';
 
 export const getParcelsByExtent = async ({ extent }: { extent: Extent }) => {
   const res = await fetch(
+    // `http://services.cuzk.cz/wfs/inspire-CPX-wfs.asp?service=wfs&version=2.0.0&request=getFeature&BBOX=${extent.join(',')}&srsName=urn:ogc:def:crs:EPSG::5514&typeNames=CadastralParcel`,
     `https://services.cuzk.cz/wfs/inspire-CP-wfs.asp?service=wfs&version=2.0.0&request=getFeature&BBOX=${extent.join(',')}&srsName=urn:ogc:def:crs:EPSG::5514&typeNames=CadastralParcel`,
   );
   const resTxt = await res.text();

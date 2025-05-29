@@ -1,5 +1,13 @@
+import { useCallback } from 'react';
 import styles from './InfoBar.module.css';
-import { type Zoning, getParcelsByZoning, useAppStore } from './store.ts';
+import { SliderInput } from './SliderInput.tsx';
+import {
+  type Zoning,
+  defaultFilters,
+  getParcelStats,
+  getParcelsByZoning,
+  useAppStore,
+} from './store.ts';
 
 const ZoningSection = ({ zoning }: { zoning: Zoning }) => {
   return (
@@ -37,8 +45,55 @@ const ParcelsSection = () => {
   );
 };
 
+const FilterSection = () => {
+  const parcelStats = useAppStore(getParcelStats);
+  const parcelFilters = useAppStore((state) => state.parcelFilters);
+  const parcelFiltersChanged = useAppStore(
+    (state) => state.parcelFiltersChanged,
+  );
+  const maxCoveredAreaM2Cb = useCallback(
+    (value: number | string) => {
+      parcelFiltersChanged({
+        maxCoveredAreaM2:
+          typeof value === 'string' ? Number.parseInt(value) : value,
+      });
+    },
+    [parcelFiltersChanged],
+  );
+  const maxCoveredAreaPercCb = useCallback(
+    (value: number | string) => {
+      parcelFiltersChanged({
+        maxCoveredAreaPerc:
+          typeof value === 'string' ? Number.parseInt(value) : value,
+      });
+    },
+    [parcelFiltersChanged],
+  );
+  return (
+    <div className={styles.section}>
+      <h3>Filtry parcel</h3>
+      <SliderInput
+        value={parcelFilters.maxCoveredAreaM2}
+        maxValue={parcelStats.maxCoveredAreaM2}
+        label="Maximální překrytí dotčené parcely v m2"
+        onChange={maxCoveredAreaM2Cb}
+      />
+      <SliderInput
+        value={parcelFilters.maxCoveredAreaPerc}
+        maxValue={100}
+        label="Maximální překrytí dotčené parcely v % rozlohy parcely"
+        onChange={maxCoveredAreaPercCb}
+      />
+    </div>
+  );
+};
+
 const InfoBar = () => {
   const fileName = useAppStore((state) => state.fileName);
+  const parcelFilters = useAppStore((state) => state.parcelFilters);
+
+  const showParcelFilters =
+    parcelFilters.maxCoveredAreaM2 !== defaultFilters.maxCoveredAreaM2;
 
   return (
     <div id="infoBar" className={styles.container}>
@@ -55,6 +110,7 @@ const InfoBar = () => {
           <div>{fileName}</div>
         </div>
       )}
+      {showParcelFilters ? <FilterSection /> : null}
       {fileName ? <ParcelsSection /> : null}
     </div>
   );

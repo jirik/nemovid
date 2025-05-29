@@ -3,6 +3,7 @@ import GeometryFactory from 'jsts/org/locationtech/jts/geom/GeometryFactory.js';
 import JstsPolygon from 'jsts/org/locationtech/jts/geom/Polygon.js';
 import OL3Parser from 'jsts/org/locationtech/jts/io/OL3Parser.js';
 import JstsBufferOp from 'jsts/org/locationtech/jts/operation/buffer/BufferOp.js';
+import JstsOverlayOp from 'jsts/org/locationtech/jts/operation/overlay/OverlayOp.js';
 import JstsRelatedOp from 'jsts/org/locationtech/jts/operation/relate/RelateOp.js';
 import JstsIsValidOp from 'jsts/org/locationtech/jts/operation/valid/IsValidOp.js';
 import { Feature, getUid } from 'ol';
@@ -183,7 +184,8 @@ export const getIntersectedParcels = ({
     console.assert(parcelJstsGeom instanceof JstsPolygon);
     const parcelId = parcel.getId() as string;
     const parcelFeaturesByExtent = featuresByParcel[parcelId];
-    const intersects = parcelFeaturesByExtent.some((feature) => {
+    const parcelIntersections: JstsGeometry[] = [];
+    for (const feature of parcelFeaturesByExtent) {
       const featureUid = getUid(feature);
       if (!(featureUid in featuresJstsGeoms)) {
         const geom = parser.read(feature.getGeometry());
@@ -200,16 +202,50 @@ export const getIntersectedParcels = ({
       }
       const featureJstsGeom = featuresJstsGeoms[featureUid];
       try {
-        return JstsRelatedOp.intersects(parcelJstsGeom, featureJstsGeom);
+        const intersects: boolean = JstsRelatedOp.intersects(
+          parcelJstsGeom,
+          featureJstsGeom,
+        );
+        if (intersects) {
+          parcelIntersections.push(
+            JstsOverlayOp.intersection(parcelJstsGeom, featureJstsGeom),
+          );
+        }
       } catch (e) {
         console.error(
           `Some problem when intersecting ${parcelId} x ${featureUid}`,
         );
         console.error(e);
       }
-    });
-    return intersects;
+    }
+
+    let parcelIntersection: JstsGeometry | null = null;
+    for (const isection of parcelIntersections) {
+      try {
+        parcelIntersection = parcelIntersection
+          ? JstsOverlayOp.union(parcelIntersection, isection)
+          : isection;
+      } catch (e) {
+        console.error(`Some problem when unioning intersection ${parcelId}`);
+        console.error(e);
+      }
+    }
+    if (parcelIntersection) {
+      const officialArea = Number.parseInt(parcel.get('areaValue')._content_);
+      const coveredArea = Math.round(
+        Math.min(parcelIntersection.getArea(), officialArea),
+      );
+      const coveredAreaRatio = Math.round((coveredArea / officialArea) * 100);
+      parcel.set(ParcelOfficialAreaM2PropName, officialArea, true);
+      parcel.set(ParcelCoveredAreaM2PropName, coveredArea, true);
+      parcel.set(ParcelCoveredAreaPercPropName, coveredAreaRatio, true);
+    }
+    return parcelIntersection;
   });
 
   return parcelsByGeom;
 };
+
+export const ParcelOfficialAreaM2PropName = 'statkarParcelAreaM2';
+export const ParcelCoveredAreaM2PropName = 'statkarParcelCoverM2';
+export const ParcelCoveredAreaPercPropName = 'statkarParcelCoverPerc';

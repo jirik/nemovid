@@ -6,7 +6,16 @@ import { immer } from 'zustand/middleware/immer';
 import { MIN_FEATURE_EXTENT_RADIUS } from '../constants.ts';
 import { assertIsDefined } from './assert.ts';
 import * as olUtil from './olutil.ts';
-import { extentsToFeatures, getIntersectedParcels } from './olutil.ts';
+import {
+  ParcelCoveredAreaM2PropName,
+  extentsToFeatures,
+  getIntersectedParcels,
+} from './olutil.ts';
+
+export type ParcelFilters = {
+  maxCoveredAreaM2: number;
+  maxCoveredAreaPerc: number;
+};
 
 interface State {
   fileName: string | null;
@@ -14,6 +23,7 @@ interface State {
   parcels: Record<string, Feature> | null;
   highlightedParcel: string | null;
   highlightedFeature: number | null;
+  parcelFilters: ParcelFilters;
 }
 
 interface Actions {
@@ -25,6 +35,7 @@ interface Actions {
     parcels,
     featureSource,
   }: { parcels: Feature[][]; featureSource: VectorSource }) => void;
+  parcelFiltersChanged: (opts: Partial<ParcelFilters>) => void;
   mapPointerMove: ({
     highlightedParcel,
     highlightedFeature,
@@ -34,6 +45,11 @@ interface Actions {
   }) => void;
 }
 
+export const defaultFilters: ParcelFilters = {
+  maxCoveredAreaM2: 1_000_000_000,
+  maxCoveredAreaPerc: 100,
+};
+
 export const useAppStore = create<State & Actions>()(
   immer((set) => ({
     fileName: null,
@@ -41,11 +57,13 @@ export const useAppStore = create<State & Actions>()(
     parcels: null,
     highlightedParcel: null,
     highlightedFeature: null,
+    parcelFilters: { ...defaultFilters },
     fileOpened: ({ name, features }: { name: string; features: Feature[] }) =>
       set((state) => {
         state.fileName = name;
         state.features = features;
         state.parcels = null;
+        state.parcelFilters = { ...defaultFilters };
       }),
     parcelsLoaded: ({
       parcels,
@@ -73,6 +91,11 @@ export const useAppStore = create<State & Actions>()(
           },
           {},
         );
+        const stats = getParcelStats(state);
+        if (stats.maxCoveredAreaM2 > 0) {
+          state.parcelFilters.maxCoveredAreaM2 = stats.maxCoveredAreaM2;
+          state.parcelFilters.maxCoveredAreaPerc = 100;
+        }
       }),
     mapPointerMove: ({
       highlightedParcel,
@@ -87,6 +110,13 @@ export const useAppStore = create<State & Actions>()(
         const featureFid = highlightedFeature?.get('fid');
         state.highlightedFeature =
           typeof featureFid === 'number' ? featureFid : null;
+      }),
+    parcelFiltersChanged: (filters: Partial<ParcelFilters>) =>
+      set((state) => {
+        state.parcelFilters = {
+          ...state.parcelFilters,
+          ...filters,
+        };
       }),
   })),
 );
@@ -150,3 +180,23 @@ export const getParcelsByZoning = createAppSelector(
     return zonings;
   },
 );
+
+export const getParcelStats = createAppSelector(
+  [(state) => state.parcels],
+  (parcels): ParcelStats => {
+    const result: ParcelStats = {
+      maxCoveredAreaM2: 0,
+    };
+    for (const parcel of Object.values(parcels || {})) {
+      result.maxCoveredAreaM2 = Math.max(
+        result.maxCoveredAreaM2,
+        parcel.get(ParcelCoveredAreaM2PropName),
+      );
+    }
+    return result;
+  },
+);
+
+export type ParcelStats = {
+  maxCoveredAreaM2: number;
+};

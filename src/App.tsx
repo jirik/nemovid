@@ -1,5 +1,7 @@
+import '@mantine/core/styles.css';
 import 'ol/ol.css';
 import './App.css';
+import { MantineProvider, createTheme } from '@mantine/core';
 import type { FeatureLike } from 'ol/Feature';
 import OlMap from 'ol/Map.js';
 import View from 'ol/View.js';
@@ -20,10 +22,21 @@ import InfoBar from './InfoBar.tsx';
 import { assertFeature, assertFeatures, assertIsDefined } from './assert.ts';
 import { getParcelsByExtent, parcelsGmlToFeatures } from './cuzk.ts';
 import {
+  ParcelCoveredAreaM2PropName,
+  ParcelCoveredAreaPercPropName,
   assertMinExtentRadius,
   loadTileLayerFromWmtsCapabilities,
 } from './olutil.ts';
-import { getMainExtentFeatures, getMainExtents, useAppStore } from './store.ts';
+import {
+  defaultFilters,
+  getMainExtentFeatures,
+  getMainExtents,
+  useAppStore,
+} from './store.ts';
+
+const theme = createTheme({
+  /** Put your mantine theme override here */
+});
 
 proj4.defs(
   'EPSG:5514',
@@ -41,6 +54,7 @@ const App = () => {
   const highlightedParcelId = useAppStore((state) => state.highlightedParcel);
   const highlightedFeatureId = useAppStore((state) => state.highlightedFeature);
   const parcels = useAppStore((state) => state.parcels);
+  const parcelFilters = useAppStore((state) => state.parcelFilters);
   const mapRef = useRef<OlMap | null>(null);
   const vectorLayerRef = useRef<WebGLVectorLayer | null>(null);
   const vectorExtentLayerRef = useRef<VectorLayer | null>(null);
@@ -105,7 +119,20 @@ const App = () => {
         source: new VectorSource(),
         style: [
           {
-            filter: ['==', ['var', 'highlightedId'], ['id']],
+            filter: [
+              'all',
+              ['==', ['var', 'highlightedId'], ['id']],
+              [
+                '<=',
+                ['get', ParcelCoveredAreaM2PropName],
+                ['var', 'maxCoveredAreaM2'],
+              ],
+              [
+                '<=',
+                ['get', ParcelCoveredAreaPercPropName],
+                ['var', 'maxCoveredAreaPerc'],
+              ],
+            ],
             style: {
               'stroke-color': '#ffff00',
               'stroke-width': 4,
@@ -114,6 +141,19 @@ const App = () => {
           },
           {
             else: true,
+            filter: [
+              'all',
+              [
+                '<=',
+                ['get', ParcelCoveredAreaM2PropName],
+                ['var', 'maxCoveredAreaM2'],
+              ],
+              [
+                '<=',
+                ['get', ParcelCoveredAreaPercPropName],
+                ['var', 'maxCoveredAreaPerc'],
+              ],
+            ],
             style: {
               'stroke-color': '#ffff00',
               'stroke-width': 1,
@@ -123,6 +163,8 @@ const App = () => {
         ],
         variables: {
           highlightedId: '',
+          maxCoveredAreaM2: defaultFilters.maxCoveredAreaM2,
+          maxCoveredAreaPerc: defaultFilters.maxCoveredAreaPerc,
         },
       });
       parcelLayerRef.current = parcelLayer;
@@ -321,8 +363,10 @@ const App = () => {
     const parcelLayer = parcelLayerRef.current;
     parcelLayer.updateStyleVariables({
       highlightedId: highlightedParcelId || '',
+      maxCoveredAreaM2: parcelFilters.maxCoveredAreaM2,
+      maxCoveredAreaPerc: parcelFilters.maxCoveredAreaPerc,
     });
-  }, [highlightedParcelId]);
+  }, [highlightedParcelId, parcelFilters]);
 
   useEffect(() => {
     assertIsDefined(vectorLayerRef.current);
@@ -332,10 +376,12 @@ const App = () => {
     });
   }, [highlightedFeatureId]);
   return (
-    <main>
-      <div id="map" />
-      <InfoBar />
-    </main>
+    <MantineProvider theme={theme}>
+      <main>
+        <div id="map" />
+        <InfoBar />
+      </main>
+    </MantineProvider>
   );
 };
 
