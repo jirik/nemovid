@@ -6,7 +6,7 @@ import JstsBufferOp from 'jsts/org/locationtech/jts/operation/buffer/BufferOp.js
 import JstsOverlayOp from 'jsts/org/locationtech/jts/operation/overlay/OverlayOp.js';
 import JstsRelatedOp from 'jsts/org/locationtech/jts/operation/relate/RelateOp.js';
 import JstsIsValidOp from 'jsts/org/locationtech/jts/operation/valid/IsValidOp.js';
-import { Feature, getUid } from 'ol';
+import { Feature } from 'ol';
 import type { Extent } from 'ol/extent';
 import * as olExtent from 'ol/extent';
 import WMTSCapabilities from 'ol/format/WMTSCapabilities';
@@ -142,16 +142,19 @@ export const assertMinExtentRadius = ({
   return extent;
 };
 
-export const getIntersectedParcels = ({
+export const getParcelsByFeatureExtent = ({
   parcels,
   featureSource,
 }: {
-  parcels: Record<string, Feature>;
+  parcels: Feature[];
   featureSource: VectorSource;
-}): Feature[] => {
+}): {
+  parcelsByExtent: Feature[];
+  featuresByParcel: Record<string, Feature[]>;
+} => {
   const featuresByParcel: Record<string, Feature[]> = {};
 
-  const parcelsByExtent = Object.values(parcels).filter((parcel) => {
+  const parcelsByExtent = parcels.filter((parcel) => {
     const parcelGeom = parcel.getGeometry();
     assertIsDefined(parcelGeom);
     const parcelId = parcel.getId() as string;
@@ -163,7 +166,77 @@ export const getIntersectedParcels = ({
     }
     return foundFeatures.length > 0;
   });
+  return {
+    parcelsByExtent,
+    featuresByParcel,
+  };
+};
 
+export const getIntersectedParcels = ({
+  parcelsByExtent,
+  featuresByParcel,
+}: {
+  parcelsByExtent: Feature[];
+  featuresByParcel: Record<string, Feature[]>;
+}): Feature[] => {
+  const geometryFactory = new GeometryFactory();
+  const parser = new OL3Parser(geometryFactory, undefined);
+  parser.inject(
+    Point,
+    LineString,
+    LinearRing,
+    Polygon,
+    MultiPoint,
+    MultiLineString,
+    MultiPolygon,
+    GeometryCollection,
+  );
+
+  const featureJstsGeoms: Record<string, JstsGeometry> = {};
+
+  const parcelsByGeom = parcelsByExtent.filter((parcel) => {
+    const parcelJstsGeom = parser.read(parcel.getGeometry());
+    console.assert(parcelJstsGeom instanceof JstsPolygon);
+    const parcelId = parcel.getId() as string;
+    const parcelFeaturesByExtent = featuresByParcel[parcelId];
+    const intersects = parcelFeaturesByExtent.some((feature) => {
+      const featureId = feature.getId() as number;
+      if (!(featureId in featureJstsGeoms)) {
+        const geom = parser.read(feature.getGeometry());
+        const geomIsValid = JstsIsValidOp.isValid(geom);
+        console.assert(
+          geomIsValid,
+          'Expected valid geometry, but found',
+          geom,
+          feature,
+        );
+        featureJstsGeoms[featureId] = geomIsValid
+          ? geom
+          : JstsBufferOp.bufferOp(geom, 0);
+      }
+      const featureJstsGeom = featureJstsGeoms[featureId];
+      try {
+        return JstsRelatedOp.intersects(parcelJstsGeom, featureJstsGeom);
+      } catch (e) {
+        console.error(
+          `Some problem when intersecting ${parcelId} x ${featureId}`,
+        );
+        console.error(e);
+      }
+    });
+    return intersects;
+  });
+
+  return parcelsByGeom;
+};
+
+export const setParcelIntersections = ({
+  parcels,
+  featuresByParcel,
+}: {
+  parcels: Feature[];
+  featuresByParcel: Record<string, Feature[]>;
+}): void => {
   const geometryFactory = new GeometryFactory();
   const parser = new OL3Parser(geometryFactory, undefined);
   parser.inject(
@@ -179,15 +252,15 @@ export const getIntersectedParcels = ({
 
   const featuresJstsGeoms: Record<string, JstsGeometry> = {};
 
-  const parcelsByGeom = parcelsByExtent.filter((parcel) => {
+  for (const parcel of parcels) {
     const parcelJstsGeom = parser.read(parcel.getGeometry());
     console.assert(parcelJstsGeom instanceof JstsPolygon);
     const parcelId = parcel.getId() as string;
     const parcelFeaturesByExtent = featuresByParcel[parcelId];
     const parcelIntersections: JstsGeometry[] = [];
     for (const feature of parcelFeaturesByExtent) {
-      const featureUid = getUid(feature);
-      if (!(featureUid in featuresJstsGeoms)) {
+      const featureId = feature.getId() as number;
+      if (!(featureId in featuresJstsGeoms)) {
         const geom = parser.read(feature.getGeometry());
         const geomIsValid = JstsIsValidOp.isValid(geom);
         console.assert(
@@ -196,11 +269,11 @@ export const getIntersectedParcels = ({
           geom,
           feature,
         );
-        featuresJstsGeoms[featureUid] = geomIsValid
+        featuresJstsGeoms[featureId] = geomIsValid
           ? geom
           : JstsBufferOp.bufferOp(geom, 0);
       }
-      const featureJstsGeom = featuresJstsGeoms[featureUid];
+      const featureJstsGeom = featuresJstsGeoms[featureId];
       try {
         const intersects: boolean = JstsRelatedOp.intersects(
           parcelJstsGeom,
@@ -213,7 +286,7 @@ export const getIntersectedParcels = ({
         }
       } catch (e) {
         console.error(
-          `Some problem when intersecting ${parcelId} x ${featureUid}`,
+          `Some problem when intersecting ${parcelId} x ${featureId}`,
         );
         console.error(e);
       }
@@ -230,22 +303,23 @@ export const getIntersectedParcels = ({
         console.error(e);
       }
     }
-    if (parcelIntersection) {
-      const officialArea = Number.parseInt(parcel.get('areaValue')._content_);
-      const coveredArea = Math.round(
-        Math.min(parcelIntersection.getArea(), officialArea),
-      );
-      const coveredAreaRatio = Math.round((coveredArea / officialArea) * 100);
-      parcel.set(ParcelOfficialAreaM2PropName, officialArea, true);
-      parcel.set(ParcelCoveredAreaM2PropName, coveredArea, true);
-      parcel.set(ParcelCoveredAreaPercPropName, coveredAreaRatio, true);
-    }
-    return parcelIntersection;
-  });
-
-  return parcelsByGeom;
+    assertIsDefined(parcelIntersection);
+    const officialArea = Number.parseInt(parcel.get('areaValue')._content_);
+    const coveredArea = Math.round(
+      Math.min(parcelIntersection.getArea(), officialArea),
+    );
+    const coveredAreaRatio = Math.round((coveredArea / officialArea) * 100);
+    parcel.set(ParcelOfficialAreaM2PropName, officialArea, true);
+    parcel.set(ParcelCoveredAreaM2PropName, coveredArea, true);
+    parcel.set(ParcelCoveredAreaPercPropName, coveredAreaRatio, true);
+  }
 };
 
 export const ParcelOfficialAreaM2PropName = 'statkarParcelAreaM2';
 export const ParcelCoveredAreaM2PropName = 'statkarParcelCoverM2';
 export const ParcelCoveredAreaPercPropName = 'statkarParcelCoverPerc';
+
+export type ParcelAreas = {
+  coveredAreaM2: number;
+  coveredAreaPerc: number;
+};

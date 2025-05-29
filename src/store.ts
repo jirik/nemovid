@@ -1,5 +1,4 @@
 import type { Feature } from 'ol';
-import type VectorSource from 'ol/source/Vector';
 import { createSelector } from 'reselect';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
@@ -7,9 +6,10 @@ import { MIN_FEATURE_EXTENT_RADIUS } from '../constants.ts';
 import { assertIsDefined } from './assert.ts';
 import * as olUtil from './olutil.ts';
 import {
+  type ParcelAreas,
   ParcelCoveredAreaM2PropName,
+  ParcelCoveredAreaPercPropName,
   extentsToFeatures,
-  getIntersectedParcels,
 } from './olutil.ts';
 
 export type ParcelFilters = {
@@ -31,10 +31,10 @@ interface Actions {
     name,
     features,
   }: { name: string; features: Feature[] }) => void;
-  parcelsLoaded: ({
-    parcels,
-    featureSource,
-  }: { parcels: Feature[][]; featureSource: VectorSource }) => void;
+  parcelsLoaded: ({ parcels }: { parcels: Feature[] }) => void;
+  parcelAreasLoaded: ({
+    parcelAreas,
+  }: { parcelAreas: Record<string, ParcelAreas> }) => void;
   parcelFiltersChanged: (opts: Partial<ParcelFilters>) => void;
   mapPointerMove: ({
     highlightedParcel,
@@ -65,32 +65,32 @@ export const useAppStore = create<State & Actions>()(
         state.parcels = null;
         state.parcelFilters = { ...defaultFilters };
       }),
-    parcelsLoaded: ({
-      parcels,
-      featureSource,
-    }: { parcels: Feature[][]; featureSource: VectorSource }) =>
+    parcelsLoaded: ({ parcels }: { parcels: Feature[] }) =>
       set((state) => {
         const parcelsDict: Record<string, Feature> = {};
-        for (const parcelGroup of parcels) {
-          for (const parcel of parcelGroup) {
-            const parcelId = parcel.getId();
-            if (typeof parcelId === 'string' && !(parcelId in parcelsDict)) {
-              parcelsDict[parcelId] = parcel;
-            }
+        for (const parcel of parcels) {
+          const parcelId = parcel.getId();
+          if (typeof parcelId === 'string' && !(parcelId in parcelsDict)) {
+            parcelsDict[parcelId] = parcel;
           }
         }
-        const intersectedParcels = getIntersectedParcels({
-          parcels: parcelsDict,
-          featureSource,
-        });
-        state.parcels = intersectedParcels.reduce(
-          (prev: Record<string, Feature>, parcel) => {
-            const parcelId = parcel.getId() as string;
-            prev[parcelId] = parcel;
-            return prev;
-          },
-          {},
-        );
+        state.parcels = parcelsDict;
+      }),
+    parcelAreasLoaded: ({
+      parcelAreas,
+    }: { parcelAreas: Record<string, ParcelAreas> }) =>
+      set((state) => {
+        for (const [parcelId, areas] of Object.entries(parcelAreas)) {
+          assertIsDefined(state.parcels);
+          const parcel = state.parcels[parcelId];
+          parcel.set(ParcelCoveredAreaM2PropName, areas.coveredAreaM2, true);
+          parcel.set(
+            ParcelCoveredAreaPercPropName,
+            areas.coveredAreaPerc,
+            true,
+          );
+        }
+        // @ts-ignore
         const stats = getParcelStats(state);
         if (stats.maxCoveredAreaM2 > 0) {
           state.parcelFilters.maxCoveredAreaM2 = stats.maxCoveredAreaM2;

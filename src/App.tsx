@@ -2,11 +2,13 @@ import '@mantine/core/styles.css';
 import 'ol/ol.css';
 import './App.css';
 import { MantineProvider, createTheme } from '@mantine/core';
+import type { Feature } from 'ol';
 import type { FeatureLike } from 'ol/Feature';
 import OlMap from 'ol/Map.js';
 import View from 'ol/View.js';
 import * as olExtent from 'ol/extent';
 import { GeoJSON } from 'ol/format';
+import type { GeoJSONFeatureCollection } from 'ol/format/GeoJSON';
 import type { Geometry } from 'ol/geom';
 import { fromExtent } from 'ol/geom/Polygon';
 import { DragAndDrop } from 'ol/interaction';
@@ -33,6 +35,7 @@ import {
   getMainExtents,
   useAppStore,
 } from './store.ts';
+import type { IncomingMessage, OutgoingMessage } from './worker.ts';
 
 const theme = createTheme({
   /** Put your mantine theme override here */
@@ -47,6 +50,7 @@ register(proj4);
 const App = () => {
   const fileOpened = useAppStore((state) => state.fileOpened);
   const parcelsLoaded = useAppStore((state) => state.parcelsLoaded);
+  const parcelAreasLoaded = useAppStore((state) => state.parcelAreasLoaded);
   const mapPointerMove = useAppStore((state) => state.mapPointerMove);
   const extentFeatures = useAppStore(getMainExtentFeatures);
   const mainExtents = useAppStore(getMainExtents);
@@ -247,6 +251,9 @@ const App = () => {
     dnd.on('addfeatures', (event) => {
       const newFeatures = event.features || [];
       assertFeatures(newFeatures);
+      for (const [idx, feature] of newFeatures.entries()) {
+        feature.setId(idx + 1);
+      }
       fileOpened({ name: event.file.name, features: newFeatures });
     });
     map.addInteraction(dnd);
@@ -311,12 +318,48 @@ const App = () => {
         const parcelGroups = results.map((res) =>
           parcelsGmlToFeatures({ gml: res }),
         );
-        parcelsLoaded({ parcels: parcelGroups, featureSource: vectorSource });
+        const parcelsDict: Record<string, Feature> = {};
+        for (const parcelGroup of parcelGroups) {
+          for (const parcel of parcelGroup) {
+            const parcelId = parcel.getId() as string;
+            console.assert(typeof parcelId === 'string');
+            if (!(parcelId in parcelsDict)) {
+              parcelsDict[parcelId] = parcel;
+              parcel.unset('referencePoint', true);
+            }
+          }
+        }
+
+        const format = new GeoJSON();
+        const features: GeoJSONFeatureCollection = format.writeFeaturesObject(
+          vectorSource.getFeatures(),
+        );
+        const parcels: GeoJSONFeatureCollection = format.writeFeaturesObject(
+          Object.values(parcelsDict),
+        );
+
+        const message: IncomingMessage = {
+          features,
+          parcels,
+        };
+        const worker = new Worker(new URL('./worker.ts', import.meta.url));
+
+        worker.onmessage = (event) => {
+          const msg = event.data as OutgoingMessage;
+          if (msg.type === 'coveredParcels') {
+            parcelsLoaded({ parcels: format.readFeatures(msg.parcels) });
+          } else {
+            parcelAreasLoaded({ parcelAreas: msg.parcelAreas });
+          }
+        };
+
+        worker.postMessage(message);
       } else {
-        parcelsLoaded({ parcels: [[]], featureSource: vectorSource });
+        parcelsLoaded({ parcels: [] });
+        parcelAreasLoaded({ parcelAreas: {} });
       }
     })();
-  }, [mainExtents, parcelsLoaded]);
+  }, [mainExtents, parcelsLoaded, parcelAreasLoaded]);
 
   useEffect(() => {
     assertIsDefined(parcelLayerRef.current);

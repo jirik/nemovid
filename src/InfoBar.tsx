@@ -75,13 +75,13 @@ const FilterSection = () => {
       <SliderInput
         value={parcelFilters.maxCoveredAreaM2}
         maxValue={parcelStats.maxCoveredAreaM2}
-        label="Maximální překrytí dotčené parcely v m2"
+        label="Maximální překrytí parcely v m2"
         onChange={maxCoveredAreaM2Cb}
       />
       <SliderInput
         value={parcelFilters.maxCoveredAreaPerc}
         maxValue={100}
-        label="Maximální překrytí dotčené parcely v % rozlohy parcely"
+        label="Maximální překrytí parcely v % rozlohy parcely"
         onChange={maxCoveredAreaPercCb}
       />
     </div>
