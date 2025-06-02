@@ -25,6 +25,7 @@ import TileLayer from 'ol/layer/Tile';
 import type VectorSource from 'ol/source/Vector';
 import WMTS, { optionsFromCapabilities } from 'ol/source/WMTS';
 import { assertIsDefined } from './assert.ts';
+import type { ParcelStats } from './store.ts';
 
 export const loadTileLayerFromWmtsCapabilities = async ({
   url,
@@ -322,4 +323,19 @@ export const ParcelCoveredAreaPercPropName = 'statkarParcelCoverPerc';
 export type ParcelAreas = {
   coveredAreaM2: number;
   coveredAreaPerc: number;
+};
+
+export const getParcelStats = ({
+  parcels,
+}: { parcels: Feature[] }): ParcelStats => {
+  const result: ParcelStats = {
+    maxCoveredAreaM2: null,
+  };
+  for (const parcel of Object.values(parcels || {})) {
+    result.maxCoveredAreaM2 = Math.max(
+      result.maxCoveredAreaM2 || 0,
+      parcel.get(ParcelCoveredAreaM2PropName),
+    );
+  }
+  return result;
 };

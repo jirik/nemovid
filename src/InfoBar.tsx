@@ -1,9 +1,10 @@
 import { useCallback } from 'react';
 import styles from './InfoBar.module.css';
 import { SliderInput } from './SliderInput.tsx';
+import { assertIsDefined } from './assert.ts';
 import {
   type Zoning,
-  defaultFilters,
+  getAreaFiltersState,
   getParcelStats,
   getParcelsByZoning,
   useAppStore,
@@ -46,6 +47,7 @@ const ParcelsSection = () => {
 };
 
 const FilterSection = () => {
+  const areaFiltersState = useAppStore(getAreaFiltersState);
   const parcelStats = useAppStore(getParcelStats);
   const parcelFilters = useAppStore((state) => state.parcelFilters);
   const parcelFiltersChanged = useAppStore(
@@ -69,31 +71,39 @@ const FilterSection = () => {
     },
     [parcelFiltersChanged],
   );
+  let content: React.ReactElement | null;
+  if (areaFiltersState == null) {
+    content = <div>Počítám velikosti překryvů ...</div>;
+  } else {
+    assertIsDefined(parcelStats.maxCoveredAreaM2);
+    content = (
+      <>
+        <SliderInput
+          value={parcelFilters.maxCoveredAreaM2}
+          maxValue={parcelStats.maxCoveredAreaM2}
+          label="Maximální překrytí parcely v m2"
+          onChange={maxCoveredAreaM2Cb}
+        />
+        <SliderInput
+          value={parcelFilters.maxCoveredAreaPerc}
+          maxValue={100}
+          label="Maximální překrytí parcely v % rozlohy parcely"
+          onChange={maxCoveredAreaPercCb}
+        />
+      </>
+    );
+  }
   return (
     <div className={styles.section}>
       <h3>Filtry parcel</h3>
-      <SliderInput
-        value={parcelFilters.maxCoveredAreaM2}
-        maxValue={parcelStats.maxCoveredAreaM2}
-        label="Maximální překrytí parcely v m2"
-        onChange={maxCoveredAreaM2Cb}
-      />
-      <SliderInput
-        value={parcelFilters.maxCoveredAreaPerc}
-        maxValue={100}
-        label="Maximální překrytí parcely v % rozlohy parcely"
-        onChange={maxCoveredAreaPercCb}
-      />
+      {content}
     </div>
   );
 };
 
 const InfoBar = () => {
   const fileName = useAppStore((state) => state.fileName);
-  const parcelFilters = useAppStore((state) => state.parcelFilters);
-
-  const showParcelFilters =
-    parcelFilters.maxCoveredAreaM2 !== defaultFilters.maxCoveredAreaM2;
+  const areaFiltersState = useAppStore(getAreaFiltersState);
 
   return (
     <div id="infoBar" className={styles.container}>
@@ -110,7 +120,7 @@ const InfoBar = () => {
           <div>{fileName}</div>
         </div>
       )}
-      {showParcelFilters ? <FilterSection /> : null}
+      {areaFiltersState === false ? null : <FilterSection />}
       {fileName ? <ParcelsSection /> : null}
     </div>
   );

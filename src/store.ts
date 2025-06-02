@@ -23,6 +23,7 @@ interface State {
   parcels: Record<string, Feature> | null;
   highlightedParcel: string | null;
   highlightedFeature: number | null;
+  parcelAreasTimestamp: number | null;
   parcelFilters: ParcelFilters;
 }
 
@@ -57,6 +58,7 @@ export const useAppStore = create<State & Actions>()(
     parcels: null,
     highlightedParcel: null,
     highlightedFeature: null,
+    parcelAreasTimestamp: null,
     parcelFilters: { ...defaultFilters },
     fileOpened: ({ name, features }: { name: string; features: Feature[] }) =>
       set((state) => {
@@ -64,6 +66,7 @@ export const useAppStore = create<State & Actions>()(
         state.features = features;
         state.parcels = null;
         state.parcelFilters = { ...defaultFilters };
+        state.parcelAreasTimestamp = null;
       }),
     parcelsLoaded: ({ parcels }: { parcels: Feature[] }) =>
       set((state) => {
@@ -80,22 +83,18 @@ export const useAppStore = create<State & Actions>()(
       parcelAreas,
     }: { parcelAreas: Record<string, ParcelAreas> }) =>
       set((state) => {
+        assertIsDefined(state.parcels);
         for (const [parcelId, areas] of Object.entries(parcelAreas)) {
-          assertIsDefined(state.parcels);
           const parcel = state.parcels[parcelId];
-          parcel.set(ParcelCoveredAreaM2PropName, areas.coveredAreaM2, true);
-          parcel.set(
-            ParcelCoveredAreaPercPropName,
-            areas.coveredAreaPerc,
-            true,
-          );
+          parcel.set(ParcelCoveredAreaM2PropName, areas.coveredAreaM2);
+          parcel.set(ParcelCoveredAreaPercPropName, areas.coveredAreaPerc);
         }
+        state.parcelAreasTimestamp = Date.now();
         // @ts-ignore
         const stats = getParcelStats(state);
-        if (stats.maxCoveredAreaM2 > 0) {
-          state.parcelFilters.maxCoveredAreaM2 = stats.maxCoveredAreaM2;
-          state.parcelFilters.maxCoveredAreaPerc = 100;
-        }
+        assertIsDefined(stats.maxCoveredAreaM2);
+        state.parcelFilters.maxCoveredAreaM2 = stats.maxCoveredAreaM2;
+        state.parcelFilters.maxCoveredAreaPerc = 100;
       }),
     mapPointerMove: ({
       highlightedParcel,
@@ -182,21 +181,46 @@ export const getParcelsByZoning = createAppSelector(
 );
 
 export const getParcelStats = createAppSelector(
-  [(state) => state.parcels],
-  (parcels): ParcelStats => {
-    const result: ParcelStats = {
-      maxCoveredAreaM2: 0,
+  [(state) => state.parcels, (state) => state.parcelAreasTimestamp],
+  (parcels, parcelAreasTimestamp): ParcelStats => {
+    let result: ParcelStats = {
+      maxCoveredAreaM2: null,
     };
-    for (const parcel of Object.values(parcels || {})) {
-      result.maxCoveredAreaM2 = Math.max(
-        result.maxCoveredAreaM2,
-        parcel.get(ParcelCoveredAreaM2PropName),
-      );
+    if (parcelAreasTimestamp != null) {
+      result = {
+        maxCoveredAreaM2: 0,
+      };
+      for (const parcel of Object.values(parcels || {})) {
+        result.maxCoveredAreaM2 = Math.max(
+          result.maxCoveredAreaM2 || 0,
+          parcel.get(ParcelCoveredAreaM2PropName),
+        );
+      }
     }
     return result;
   },
 );
 
+export const getAreaFiltersState = createAppSelector(
+  [(state) => state.parcels, getParcelStats],
+  (parcels, parcelStats): boolean | null => {
+    if (parcels == null || Object.values(parcels).length === 0) {
+      return false;
+    }
+    if (parcelStats.maxCoveredAreaM2 != null) {
+      return true;
+    }
+    return null;
+  },
+);
+
+export const getIsFileOpened = createAppSelector(
+  [(state) => state.fileName],
+  (fileName): boolean => {
+    return fileName != null;
+  },
+);
+
 export type ParcelStats = {
-  maxCoveredAreaM2: number;
+  maxCoveredAreaM2: number | null;
 };

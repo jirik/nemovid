@@ -31,6 +31,7 @@ import {
 } from './olutil.ts';
 import {
   defaultFilters,
+  getIsFileOpened,
   getMainExtentFeatures,
   getMainExtents,
   useAppStore,
@@ -53,6 +54,7 @@ const App = () => {
   const parcelAreasLoaded = useAppStore((state) => state.parcelAreasLoaded);
   const mapPointerMove = useAppStore((state) => state.mapPointerMove);
   const extentFeatures = useAppStore(getMainExtentFeatures);
+  const isFileOpened = useAppStore(getIsFileOpened);
   const mainExtents = useAppStore(getMainExtents);
   const features = useAppStore((state) => state.features);
   const highlightedParcelId = useAppStore((state) => state.highlightedParcel);
@@ -307,6 +309,9 @@ const App = () => {
 
   useEffect(() => {
     (async () => {
+      if (!isFileOpened) {
+        return;
+      }
       assertIsDefined(vectorLayerRef.current);
       const vectorLayer = vectorLayerRef.current;
       const vectorSource = vectorLayer.getSource();
@@ -359,7 +364,7 @@ const App = () => {
         parcelAreasLoaded({ parcelAreas: {} });
       }
     })();
-  }, [mainExtents, parcelsLoaded, parcelAreasLoaded]);
+  }, [isFileOpened, mainExtents, parcelsLoaded, parcelAreasLoaded]);
 
   useEffect(() => {
     assertIsDefined(parcelLayerRef.current);
