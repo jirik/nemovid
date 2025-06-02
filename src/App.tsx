@@ -53,6 +53,7 @@ const App = () => {
   const parcelsLoaded = useAppStore((state) => state.parcelsLoaded);
   const parcelAreasLoaded = useAppStore((state) => state.parcelAreasLoaded);
   const mapPointerMove = useAppStore((state) => state.mapPointerMove);
+  const parcelAreasProgress = useAppStore((state) => state.parcelAreasProgress);
   const extentFeatures = useAppStore(getMainExtentFeatures);
   const isFileOpened = useAppStore(getIsFileOpened);
   const mainExtents = useAppStore(getMainExtents);
@@ -353,6 +354,9 @@ const App = () => {
           const msg = event.data as OutgoingMessage;
           if (msg.type === 'coveredParcels') {
             parcelsLoaded({ parcels: format.readFeatures(msg.parcels) });
+          } else if (msg.type === 'parcelAreasProgress') {
+            const { processedParcels } = msg;
+            parcelAreasProgress(processedParcels);
           } else {
             parcelAreasLoaded({ parcelAreas: msg.parcelAreas });
           }
@@ -364,7 +368,13 @@ const App = () => {
         parcelAreasLoaded({ parcelAreas: {} });
       }
     })();
-  }, [isFileOpened, mainExtents, parcelsLoaded, parcelAreasLoaded]);
+  }, [
+    isFileOpened,
+    mainExtents,
+    parcelsLoaded,
+    parcelAreasLoaded,
+    parcelAreasProgress,
+  ]);
 
   useEffect(() => {
     assertIsDefined(parcelLayerRef.current);

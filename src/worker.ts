@@ -21,6 +21,10 @@ export type OutgoingMessage =
       parcels: GeoJSONFeatureCollection;
     }
   | {
+      type: 'parcelAreasProgress';
+      processedParcels: number;
+    }
+  | {
       type: 'parcelAreas';
       parcelAreas: Record<string, ParcelAreas>;
     };
@@ -52,10 +56,19 @@ self.onmessage = async (event) => {
     parcels: coveredParcelsGeojson,
   } satisfies OutgoingMessage);
 
-  setParcelIntersections({
+  const progress = setParcelIntersections({
     parcels: coveredParcels,
     featuresByParcel,
   });
+  const numParcels = coveredParcels.length;
+  let processedParcels = 0;
+  while (processedParcels < numParcels) {
+    self.postMessage({
+      type: 'parcelAreasProgress',
+      processedParcels,
+    } satisfies OutgoingMessage);
+    processedParcels = progress.next().value;
+  }
   const parcelAreas = coveredParcels.reduce(
     (prev: Record<string, ParcelAreas>, parcel) => {
       const id = parcel.getId() as string;

@@ -53,6 +53,9 @@ const FilterSection = () => {
   const parcelFiltersChanged = useAppStore(
     (state) => state.parcelFiltersChanged,
   );
+  const processedParcels = useAppStore((state) => state.processedParcels);
+  const parcels = useAppStore((state) => state.parcels);
+
   const maxCoveredAreaM2Cb = useCallback(
     (value: number | string) => {
       parcelFiltersChanged({
@@ -73,7 +76,13 @@ const FilterSection = () => {
   );
   let content: React.ReactElement | null;
   if (areaFiltersState == null) {
-    content = <div>Počítám velikosti překryvů ...</div>;
+    assertIsDefined(parcels);
+    content = (
+      <div>
+        Počítám velikosti překryvů ... {processedParcels || 0}/
+        {Object.values(parcels).length} parcel zpracováno
+      </div>
+    );
   } else {
     assertIsDefined(parcelStats.maxCoveredAreaM2);
     content = (

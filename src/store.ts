@@ -24,6 +24,7 @@ interface State {
   highlightedParcel: string | null;
   highlightedFeature: number | null;
   parcelAreasTimestamp: number | null;
+  processedParcels: number | null;
   parcelFilters: ParcelFilters;
 }
 
@@ -44,6 +45,7 @@ interface Actions {
     highlightedParcel?: Feature | null;
     highlightedFeature?: Feature | null;
   }) => void;
+  parcelAreasProgress: (processedParcels: number) => void;
 }
 
 export const defaultFilters: ParcelFilters = {
@@ -56,6 +58,7 @@ export const useAppStore = create<State & Actions>()(
     fileName: null,
     features: [],
     parcels: null,
+    processedParcels: null,
     highlightedParcel: null,
     highlightedFeature: null,
     parcelAreasTimestamp: null,
@@ -67,6 +70,7 @@ export const useAppStore = create<State & Actions>()(
         state.parcels = null;
         state.parcelFilters = { ...defaultFilters };
         state.parcelAreasTimestamp = null;
+        state.processedParcels = null;
       }),
     parcelsLoaded: ({ parcels }: { parcels: Feature[] }) =>
       set((state) => {
@@ -95,6 +99,7 @@ export const useAppStore = create<State & Actions>()(
         assertIsDefined(stats.maxCoveredAreaM2);
         state.parcelFilters.maxCoveredAreaM2 = stats.maxCoveredAreaM2;
         state.parcelFilters.maxCoveredAreaPerc = 100;
+        state.processedParcels = null;
       }),
     mapPointerMove: ({
       highlightedParcel,
@@ -116,6 +121,10 @@ export const useAppStore = create<State & Actions>()(
           ...state.parcelFilters,
           ...filters,
         };
+      }),
+    parcelAreasProgress: (processedParcels: number) =>
+      set((state) => {
+        state.processedParcels = processedParcels;
       }),
   })),
 );

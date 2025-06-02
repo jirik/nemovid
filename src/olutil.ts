@@ -231,13 +231,13 @@ export const getIntersectedParcels = ({
   return parcelsByGeom;
 };
 
-export const setParcelIntersections = ({
+export function* setParcelIntersections({
   parcels,
   featuresByParcel,
 }: {
   parcels: Feature[];
   featuresByParcel: Record<string, Feature[]>;
-}): void => {
+}): Generator<number> {
   const geometryFactory = new GeometryFactory();
   const parser = new OL3Parser(geometryFactory, undefined);
   parser.inject(
@@ -253,7 +253,7 @@ export const setParcelIntersections = ({
 
   const featuresJstsGeoms: Record<string, JstsGeometry> = {};
 
-  for (const parcel of parcels) {
+  for (const [parcelIdx, parcel] of parcels.entries()) {
     const parcelJstsGeom = parser.read(parcel.getGeometry());
     console.assert(parcelJstsGeom instanceof JstsPolygon);
     const parcelId = parcel.getId() as string;
@@ -313,8 +313,10 @@ export const setParcelIntersections = ({
     parcel.set(ParcelOfficialAreaM2PropName, officialArea, true);
     parcel.set(ParcelCoveredAreaM2PropName, coveredArea, true);
     parcel.set(ParcelCoveredAreaPercPropName, coveredAreaRatio, true);
+
+    yield parcelIdx + 1;
   }
-};
+}
 
 export const ParcelOfficialAreaM2PropName = 'statkarParcelAreaM2';
 export const ParcelCoveredAreaM2PropName = 'statkarParcelCoverM2';
