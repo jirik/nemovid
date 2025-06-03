@@ -1,3 +1,4 @@
+import deepEqual from 'deep-equal';
 import type JstsGeometry from 'jsts/org/locationtech/jts/geom/Geometry.js';
 import GeometryFactory from 'jsts/org/locationtech/jts/geom/GeometryFactory.js';
 import JstsPolygon from 'jsts/org/locationtech/jts/geom/Polygon.js';
@@ -25,6 +26,11 @@ import TileLayer from 'ol/layer/Tile';
 import type VectorSource from 'ol/source/Vector';
 import WMTS, { optionsFromCapabilities } from 'ol/source/WMTS';
 import { assertIsDefined } from './assert.ts';
+import {
+  type ParcelFilters,
+  type SimpleParcel,
+  defaultFilters,
+} from './store.ts';
 
 export const loadTileLayerFromWmtsCapabilities = async ({
   url,
@@ -305,10 +311,10 @@ export function* setParcelIntersections({
     }
     assertIsDefined(parcelIntersection);
     const officialArea = Number.parseInt(parcel.get('areaValue')._content_);
-    const coveredArea = Math.round(
+    const coveredArea = Math.ceil(
       Math.min(parcelIntersection.getArea(), officialArea),
     );
-    const coveredAreaRatio = Math.round((coveredArea / officialArea) * 100);
+    const coveredAreaRatio = Math.ceil((coveredArea / officialArea) * 100);
     parcel.set(ParcelOfficialAreaM2PropName, officialArea, true);
     parcel.set(ParcelCoveredAreaM2PropName, coveredArea, true);
     parcel.set(ParcelCoveredAreaPercPropName, coveredAreaRatio, true);
@@ -324,4 +330,47 @@ export const ParcelCoveredAreaPercPropName = 'statkarParcelCoverPerc';
 export type ParcelAreas = {
   coveredAreaM2: number;
   coveredAreaPerc: number;
+};
+
+export const filterParcels = ({
+  models,
+  features,
+  filters,
+}: {
+  models: Record<string, SimpleParcel> | null;
+  features: Record<string, Feature> | null;
+  filters: ParcelFilters;
+}): Record<string, SimpleParcel> | null => {
+  if (
+    models == null ||
+    features == null ||
+    deepEqual(filters, defaultFilters)
+  ) {
+    return models;
+  }
+  const filteredFeaturesList = Object.values(features).filter((feature) => {
+    const areaM2 = feature.get(ParcelCoveredAreaM2PropName) as number;
+    const areaPerc = feature.get(ParcelCoveredAreaPercPropName) as number;
+    return (
+      areaM2 <= filters.maxCoveredAreaM2 &&
+      areaPerc <= filters.maxCoveredAreaPerc
+    );
+  });
+  const filteredFeatures = filteredFeaturesList.reduce(
+    (prev: Record<string, Feature>, feature) => {
+      prev[feature.getId() as number] = feature;
+      return prev;
+    },
+    {},
+  );
+  const result: Record<string, SimpleParcel> = Object.values(models).reduce(
+    (prev: Record<string, SimpleParcel>, model) => {
+      if (model.id in filteredFeatures) {
+        prev[model.id] = model;
+      }
+      return prev;
+    },
+    {},
+  );
+  return result;
 };

@@ -11,6 +11,7 @@ import {
   ParcelCoveredAreaM2PropName,
   ParcelCoveredAreaPercPropName,
   extentsToFeatures,
+  filterParcels,
 } from './olutil.ts';
 
 export type ParcelFilters = {
@@ -236,22 +237,45 @@ export type SimpleParcel = Omit<Parcel, 'zoning' | 'titleDeed'> & {
   titleDeed: number | null;
 };
 
+export const getFilteredParcels = createAppSelector(
+  [
+    (state) => state.parcels,
+    (state) => state.parcelFeatures,
+    (state) => state.parcelFilters,
+  ],
+  (parcels, features, parcelFilters) => {
+    return filterParcels({
+      models: parcels,
+      features: features,
+      filters: parcelFilters,
+    });
+  },
+);
+
 export const getZonings = createAppSelector(
   [
     (state) => state.zonings,
-    (state) => state.parcels,
+    getFilteredParcels,
     (state) => state.titleDeeds,
+    (state) => state.parcelFilters,
   ],
-  (simpleZonings, simpleParcels, simpleTitleDeeds) => {
-    console.log('getZonings', simpleZonings, simpleParcels, simpleTitleDeeds);
+  (simpleZonings, filteredParcels, simpleTitleDeeds, parcelFilters) => {
+    const simpleParcels = filteredParcels;
+    console.log(
+      'getZonings',
+      Object.values(simpleZonings || {}).length,
+      Object.values(simpleParcels || {}).length,
+      Object.values(simpleTitleDeeds || {}).length,
+      parcelFilters,
+    );
     if (simpleZonings == null || simpleParcels == null) {
       return null;
     }
     const zonings = Object.values(simpleZonings || {}).reduce(
       (prev: Record<string, Zoning>, simpleZoning) => {
-        const zoningSimpleParcels = simpleZoning.parcels.map(
-          (pid) => simpleParcels[pid],
-        );
+        const zoningSimpleParcels = simpleZoning.parcels
+          .filter((pid) => pid in simpleParcels)
+          .map((pid) => simpleParcels[pid]);
         const zoningSimpleTitleDeeds: SimpleTitleDeed[] = [];
         for (const simpleTitleDeed of Object.values(simpleTitleDeeds || {})) {
           if (simpleTitleDeed.zoning === simpleZoning.id) {
@@ -273,11 +297,13 @@ export const getZonings = createAppSelector(
         });
         const zoningTitleDeeds = zoningSimpleTitleDeeds.map(
           (simpleTitleDeed) => {
-            const parcels: Parcel[] = simpleTitleDeed.parcels.map((pid) => {
-              const parcel = zoningParcels.find((p) => p.id === pid);
-              assertIsDefined(parcel);
-              return parcel;
-            });
+            const parcels: Parcel[] = simpleTitleDeed.parcels
+              .filter((pid) => pid in simpleParcels)
+              .map((pid) => {
+                const parcel = zoningParcels.find((p) => p.id === pid);
+                assertIsDefined(parcel);
+                return parcel;
+              });
             const titleDeed: TitleDeed = {
               ...simpleTitleDeed,
               parcels,
@@ -297,7 +323,9 @@ export const getZonings = createAppSelector(
           {},
         );
         zoning.parcels = zoningParcels;
-        prev[zoning.id] = zoning;
+        if (zoning.parcels.length > 0) {
+          prev[zoning.id] = zoning;
+        }
         return prev;
       },
       {},
