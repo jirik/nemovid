@@ -1,4 +1,4 @@
-import { type ReactElement, useCallback } from 'react';
+import { type ReactNode, useCallback } from 'react';
 import styles from './InfoBar.module.css';
 import { SliderInput } from './SliderInput.tsx';
 import { assertIsDefined } from './assert.ts';
@@ -24,8 +24,8 @@ const ZoningSection = ({ zoning }: { zoning: Zoning }) => {
         {zoning.parcels.map((parcel) => {
           const parcelKnId = getParcelKnId(parcel);
           const parcelLabel = getParcelLabel(parcel);
-          const parcelTitleDeed = getParcelTitleDeed(parcel);
-          let parcelLabelJsx: ReactElement = <>č. p. {parcelLabel}</>;
+          const titleDeed = getParcelTitleDeed(parcel);
+          let parcelLabelJsx: ReactNode = <>č. p. {parcelLabel}</>;
           if (settings.parcelInfoUrlTemplate != null) {
             const parcelInfoUrl = fillTemplate(settings.parcelInfoUrlTemplate, {
               parcelKnId,
@@ -36,14 +36,31 @@ const ZoningSection = ({ zoning }: { zoning: Zoning }) => {
               </a>
             );
           }
+          let titleDeedJsx: ReactNode | null = null;
+          if (titleDeed != null) {
+            titleDeedJsx = `, LV ${titleDeed.number}`;
+            if (settings.titleDeedInfoUrlTemplate != null) {
+              const titleDeedId = titleDeed.id;
+              const titleDeedUrl = fillTemplate(
+                settings.titleDeedInfoUrlTemplate,
+                { titleDeedId },
+              );
+              titleDeedJsx = [
+                ', ',
+                <a key="link" href={titleDeedUrl}>
+                  LV {titleDeed.number}
+                </a>,
+              ];
+            }
+          }
           return (
             <li key={parcelKnId}>
               {parcelLabelJsx}
-              {parcelTitleDeed != null ? `, LV ${parcelTitleDeed.number}` : null}
-              {parcelTitleDeed != null
+              {titleDeedJsx}
+              {titleDeed != null
                 ? [
                     ', ',
-                    parcelTitleDeed.owners.map((owner, idx) => {
+                    titleDeed.owners.map((owner, idx) => {
                       return [
                         idx > 0 && ', ',
                         <a key={owner.url} href={owner.url}>

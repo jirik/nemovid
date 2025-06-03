@@ -61,14 +61,21 @@ export const loadParcelInfos = async ({ parcels }: { parcels: Feature[] }) => {
     console.assert(owners.length > 0);
     const titleDeedNumber = parcelFeature.properties.lv as number;
     console.assert(typeof titleDeedNumber === 'number');
+    const titleDeedId = parcelFeature.properties.tel_id as number;
+    console.assert(typeof titleDeedId === 'number');
     if (!(titleDeedNumber in zoning.titleDeeds)) {
       zoning.titleDeeds[titleDeedNumber] = {
+        id: titleDeedId,
         number: titleDeedNumber,
         owners,
         zoning,
       };
     }
-    parcel.set(ParcelTitleDeedPropName, zoning.titleDeeds[titleDeedNumber], true);
+    parcel.set(
+      ParcelTitleDeedPropName,
+      zoning.titleDeeds[titleDeedNumber],
+      true,
+    );
   }
 };
 

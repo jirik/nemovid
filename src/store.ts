@@ -167,6 +167,7 @@ export type Owner = {
 };
 
 export type TitleDeed = {
+  id: number;
   number: number;
   owners: Owner[];
   zoning: Zoning;
