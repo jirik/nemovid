@@ -1,7 +1,6 @@
 import { GeoJSON } from 'ol/format';
 import type { GeoJSONFeatureCollection } from 'ol/format/GeoJSON';
 import VectorSource from 'ol/source/Vector';
-import { getParcelId } from './cuzk.ts';
 import {
   type ParcelAreas,
   ParcelCoveredAreaM2PropName,
@@ -72,7 +71,7 @@ self.onmessage = async (event) => {
   }
   const parcelAreas = coveredParcels.reduce(
     (prev: Record<string, ParcelAreas>, parcel) => {
-      const id = getParcelId(parcel);
+      const id = parcel.getId() as number;
       prev[id] = {
         coveredAreaM2: parcel.get(ParcelCoveredAreaM2PropName) as number,
         coveredAreaPerc: parcel.get(ParcelCoveredAreaPercPropName) as number,

@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { MIN_FEATURE_EXTENT_RADIUS } from '../constants.ts';
 import { assertIsDefined } from './assert.ts';
-import { ParcelZoningPropName, getParcelId } from './cuzk.ts';
+import { getParcelLabel, getParcelZoning } from './cuzk.ts';
 import * as olUtil from './olutil.ts';
 import {
   type ParcelAreas,
@@ -21,8 +21,11 @@ export type ParcelFilters = {
 interface State {
   fileName: string | null;
   features: Feature[];
-  parcels: Record<string, Feature> | null;
-  highlightedParcel: string | null;
+  parcels: Record<string, SimpleParcel> | null;
+  parcelFeatures: Record<string, Feature> | null;
+  zonings: Record<string, SimpleZoning> | null;
+  titleDeeds: Record<string, SimpleTitleDeed> | null;
+  highlightedParcel: number | null;
   highlightedFeature: number | null;
   parcelAreasTimestamp: number | null;
   parcelInfosTimestamp: number | null;
@@ -48,7 +51,7 @@ interface Actions {
     highlightedFeature?: Feature | null;
   }) => void;
   parcelAreasProgress: (processedParcels: number) => void;
-  parcelInfosLoaded: () => void;
+  titleDeedsLoaded: (titleDeeds: Record<string, SimpleTitleDeed>) => void;
 }
 
 export const defaultFilters: ParcelFilters = {
@@ -61,6 +64,9 @@ export const useAppStore = create<State & Actions>()(
     fileName: null,
     features: [],
     parcels: null,
+    parcelFeatures: null,
+    zonings: null,
+    titleDeeds: null,
     processedParcels: null,
     highlightedParcel: null,
     highlightedFeature: null,
@@ -72,6 +78,9 @@ export const useAppStore = create<State & Actions>()(
         state.fileName = name;
         state.features = features;
         state.parcels = null;
+        state.parcelFeatures = null;
+        state.zonings = null;
+        state.titleDeeds = null;
         state.parcelFilters = { ...defaultFilters };
         state.parcelAreasTimestamp = null;
         state.parcelInfosTimestamp = null;
@@ -79,12 +88,36 @@ export const useAppStore = create<State & Actions>()(
       }),
     parcelsLoaded: ({ parcels }: { parcels: Feature[] }) =>
       set((state) => {
-        const parcelsDict: Record<string, Feature> = {};
-        for (const parcel of parcels) {
-          const parcelId = getParcelId(parcel);
-          console.assert(typeof parcelId === 'string');
+        const parcelsDict: Record<string, SimpleParcel> = {};
+        state.parcelFeatures = {};
+        state.zonings = {};
+        for (const parcelFeature of parcels) {
+          const parcelId = parcelFeature.getId() as number;
+          console.assert(typeof parcelId === 'number');
+
           if (!(parcelId in parcelsDict)) {
+            const simpleZoning = getParcelZoning(parcelFeature);
+            const zoningId = simpleZoning.id;
+            assertIsDefined(zoningId);
+            if (!(zoningId in state.zonings)) {
+              state.zonings[zoningId] = {
+                id: zoningId,
+                title: simpleZoning.title,
+                parcels: [],
+                titleDeeds: [],
+              };
+            }
+            const zoning = state.zonings[zoningId] as SimpleZoning;
+            const parcel: SimpleParcel = {
+              id: parcelId,
+              label: getParcelLabel(parcelFeature),
+              titleDeed: null,
+              zoning: zoningId,
+            };
+
             parcelsDict[parcelId] = parcel;
+            zoning.parcels.push(parcelId);
+            state.parcelFeatures[parcelId] = parcelFeature;
           }
         }
         state.parcels = parcelsDict;
@@ -93,9 +126,9 @@ export const useAppStore = create<State & Actions>()(
       parcelAreas,
     }: { parcelAreas: Record<string, ParcelAreas> }) =>
       set((state) => {
-        assertIsDefined(state.parcels);
+        assertIsDefined(state.parcelFeatures);
         for (const [parcelId, areas] of Object.entries(parcelAreas)) {
-          const parcel = state.parcels[parcelId];
+          const parcel = state.parcelFeatures[parcelId];
           parcel.set(ParcelCoveredAreaM2PropName, areas.coveredAreaM2);
           parcel.set(ParcelCoveredAreaPercPropName, areas.coveredAreaPerc);
         }
@@ -116,7 +149,7 @@ export const useAppStore = create<State & Actions>()(
     }) =>
       set((state) => {
         state.highlightedParcel = highlightedParcel
-          ? getParcelId(highlightedParcel)
+          ? (highlightedParcel.getId() as number)
           : null;
         const featureFid = highlightedFeature?.getId();
         state.highlightedFeature =
@@ -133,8 +166,9 @@ export const useAppStore = create<State & Actions>()(
       set((state) => {
         state.processedParcels = processedParcels;
       }),
-    parcelInfosLoaded: () =>
+    titleDeedsLoaded: (titleDeeds: Record<string, SimpleTitleDeed>) =>
       set((state) => {
+        state.titleDeeds = titleDeeds;
         state.parcelInfosTimestamp = Date.now();
       }),
   })),
@@ -170,42 +204,110 @@ export type TitleDeed = {
   id: number;
   number: number;
   owners: Owner[];
+  parcels: Parcel[];
   zoning: Zoning;
 };
 
 export type Zoning = {
   id: string;
   title: string;
-  parcels: Feature[];
-  titleDeeds: Record<number, TitleDeed>;
+  parcels: Parcel[];
+  titleDeeds: Record<string, TitleDeed>;
 };
 
-export const getParcelsByZoning = createAppSelector(
-  [(state) => state.parcels],
-  (parcels) => {
-    const zonings: Record<string, Zoning> = {};
-    for (const parcel of Object.values(parcels || {})) {
-      const zoningUrl = parcel.get('zoning')['xlink:href'] as string;
-      const zoningTitle = parcel.get('zoning')['xlink:title'] as string;
-      const zoningId = URL.parse(zoningUrl)?.searchParams.get('Id');
-      assertIsDefined(zoningId);
-      if (!(zoningId in zonings)) {
-        zonings[zoningId] = {
-          id: zoningId,
-          title: zoningTitle,
-          parcels: [],
-          titleDeeds: [],
-        };
-      }
-      zonings[zoningId].parcels.push(parcel);
-      parcel.set(ParcelZoningPropName, zonings[zoningId], true);
+export type Parcel = {
+  id: number;
+  label: string;
+  zoning: Zoning;
+  titleDeed: TitleDeed | null;
+};
+
+export type SimpleZoning = Omit<Zoning, 'parcels' | 'titleDeeds'> & {
+  parcels: number[];
+  titleDeeds: number[];
+};
+export type SimpleTitleDeed = Omit<TitleDeed, 'zoning' | 'parcels'> & {
+  zoning: string;
+  parcels: number[];
+};
+
+export type SimpleParcel = Omit<Parcel, 'zoning' | 'titleDeed'> & {
+  zoning: string;
+  titleDeed: number | null;
+};
+
+export const getZonings = createAppSelector(
+  [
+    (state) => state.zonings,
+    (state) => state.parcels,
+    (state) => state.titleDeeds,
+  ],
+  (simpleZonings, simpleParcels, simpleTitleDeeds) => {
+    console.log('getZonings', simpleZonings, simpleParcels, simpleTitleDeeds);
+    if (simpleZonings == null || simpleParcels == null) {
+      return null;
     }
+    const zonings = Object.values(simpleZonings || {}).reduce(
+      (prev: Record<string, Zoning>, simpleZoning) => {
+        const zoningSimpleParcels = simpleZoning.parcels.map(
+          (pid) => simpleParcels[pid],
+        );
+        const zoningSimpleTitleDeeds: SimpleTitleDeed[] = [];
+        for (const simpleTitleDeed of Object.values(simpleTitleDeeds || {})) {
+          if (simpleTitleDeed.zoning === simpleZoning.id) {
+            zoningSimpleTitleDeeds.push(simpleTitleDeed);
+          }
+        }
+        const zoning: Zoning = {
+          ...simpleZoning,
+          parcels: [],
+          titleDeeds: {},
+        };
+        const zoningParcels = zoningSimpleParcels.map((simpleParcel) => {
+          const parcel: Parcel = {
+            ...simpleParcel,
+            zoning,
+            titleDeed: null,
+          };
+          return parcel;
+        });
+        const zoningTitleDeeds = zoningSimpleTitleDeeds.map(
+          (simpleTitleDeed) => {
+            const parcels: Parcel[] = simpleTitleDeed.parcels.map((pid) => {
+              const parcel = zoningParcels.find((p) => p.id === pid);
+              assertIsDefined(parcel);
+              return parcel;
+            });
+            const titleDeed: TitleDeed = {
+              ...simpleTitleDeed,
+              parcels,
+              zoning,
+            };
+            for (const p of parcels) {
+              p.titleDeed = titleDeed;
+            }
+            return titleDeed;
+          },
+        );
+        zoning.titleDeeds = zoningTitleDeeds.reduce(
+          (prev: Record<number, TitleDeed>, td) => {
+            prev[td.id] = td;
+            return prev;
+          },
+          {},
+        );
+        zoning.parcels = zoningParcels;
+        prev[zoning.id] = zoning;
+        return prev;
+      },
+      {},
+    );
     for (const zoning of Object.values(zonings)) {
       zoning.parcels.sort((a, b) => {
-        const aParts = (a.get('label') as string)
+        const aParts = (a.label as string)
           .split(/\D+/)
           .map((s) => Number.parseInt(s));
-        const bParts = (b.get('label') as string)
+        const bParts = (b.label as string)
           .split(/\D+/)
           .map((s) => Number.parseInt(s));
         return aParts[0] - bParts[0] || aParts[1] - bParts[1];
@@ -215,8 +317,21 @@ export const getParcelsByZoning = createAppSelector(
   },
 );
 
+export const getParcels = createAppSelector([getZonings], (zonings) => {
+  if (zonings == null) {
+    return null;
+  }
+  const parcels: Record<string, Parcel> = {};
+  for (const zoning of Object.values(zonings)) {
+    for (const parcel of Object.values(zoning.parcels)) {
+      parcels[parcel.id] = parcel;
+    }
+  }
+  return parcels;
+});
+
 export const getParcelStats = createAppSelector(
-  [(state) => state.parcels, (state) => state.parcelAreasTimestamp],
+  [(state) => state.parcelFeatures, (state) => state.parcelAreasTimestamp],
   (parcels, parcelAreasTimestamp): ParcelStats => {
     let result: ParcelStats = {
       maxCoveredAreaM2: null,

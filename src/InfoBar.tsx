@@ -2,13 +2,13 @@ import { type ReactNode, useCallback } from 'react';
 import styles from './InfoBar.module.css';
 import { SliderInput } from './SliderInput.tsx';
 import { assertIsDefined } from './assert.ts';
-import { getParcelKnId, getParcelLabel, getParcelTitleDeed } from './cuzk.ts';
 import settings from './settings.ts';
 import {
   type Zoning,
   getAreaFiltersState,
   getParcelStats,
-  getParcelsByZoning,
+  getParcels,
+  getZonings,
   useAppStore,
 } from './store.ts';
 import { fillTemplate } from './template.ts';
@@ -22,9 +22,9 @@ const ZoningSection = ({ zoning }: { zoning: Zoning }) => {
       <div>Celkem parcel: {Object.values(zoning.parcels).length}</div>
       <ul>
         {zoning.parcels.map((parcel) => {
-          const parcelKnId = getParcelKnId(parcel);
-          const parcelLabel = getParcelLabel(parcel);
-          const titleDeed = getParcelTitleDeed(parcel);
+          const parcelKnId = parcel.id;
+          const parcelLabel = parcel.label;
+          const titleDeed = parcel.titleDeed;
           let parcelLabelJsx: ReactNode = <>č. p. {parcelLabel}</>;
           if (settings.parcelInfoUrlTemplate != null) {
             const parcelInfoUrl = fillTemplate(settings.parcelInfoUrlTemplate, {
@@ -79,8 +79,8 @@ const ZoningSection = ({ zoning }: { zoning: Zoning }) => {
 };
 
 const ParcelsSection = () => {
-  const parcels = useAppStore((state) => state.parcels);
-  const parcelsByZoning = useAppStore(getParcelsByZoning);
+  const parcels = useAppStore(getParcels);
+  const zonings = useAppStore(getZonings);
   return (
     <>
       <div className={styles.section}>
@@ -91,7 +91,7 @@ const ParcelsSection = () => {
             : `Celkem parcel: ${Object.values(parcels).length}`}
         </div>
       </div>
-      {Object.values(parcelsByZoning).map((zoning) => {
+      {Object.values(zonings || {}).map((zoning) => {
         return <ZoningSection key={zoning.id} zoning={zoning} />;
       })}
     </>

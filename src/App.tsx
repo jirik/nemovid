@@ -23,9 +23,8 @@ import { MIN_MAIN_EXTENT_RADIUS_PX } from '../constants.ts';
 import InfoBar from './InfoBar.tsx';
 import { assertFeature, assertFeatures, assertIsDefined } from './assert.ts';
 import {
-  getParcelId,
   getParcelsByExtent,
-  loadParcelInfos,
+  getTitleDeeds,
   parcelsGmlToFeatures,
 } from './cuzk.ts';
 import {
@@ -58,7 +57,7 @@ const App = () => {
   const fileOpened = useAppStore((state) => state.fileOpened);
   const parcelsLoaded = useAppStore((state) => state.parcelsLoaded);
   const parcelAreasLoaded = useAppStore((state) => state.parcelAreasLoaded);
-  const parcelInfosLoaded = useAppStore((state) => state.parcelInfosLoaded);
+  const titleDeedsLoaded = useAppStore((state) => state.titleDeedsLoaded);
   const mapPointerMove = useAppStore((state) => state.mapPointerMove);
   const parcelAreasProgress = useAppStore((state) => state.parcelAreasProgress);
   const extentFeatures = useAppStore(getMainExtentFeatures);
@@ -67,7 +66,7 @@ const App = () => {
   const features = useAppStore((state) => state.features);
   const highlightedParcelId = useAppStore((state) => state.highlightedParcel);
   const highlightedFeatureId = useAppStore((state) => state.highlightedFeature);
-  const parcels = useAppStore((state) => state.parcels);
+  const parcels = useAppStore((state) => state.parcelFeatures);
   const parcelFilters = useAppStore((state) => state.parcelFilters);
   const mapRef = useRef<OlMap | null>(null);
   const vectorLayerRef = useRef<WebGLVectorLayer | null>(null);
@@ -334,8 +333,11 @@ const App = () => {
         const parcelsDict: Record<string, Feature> = {};
         for (const parcelGroup of parcelGroups) {
           for (const parcel of parcelGroup) {
-            const parcelId = getParcelId(parcel);
-            console.assert(typeof parcelId === 'string');
+            const inspireId = parcel.getId() as string;
+            console.assert(typeof inspireId === 'string');
+            const parcelId = Number.parseInt(inspireId.split('.')[1]);
+            console.assert(typeof parcelId === 'number');
+            parcel.setId(parcelId);
             if (!(parcelId in parcelsDict)) {
               parcelsDict[parcelId] = parcel;
               parcel.unset('referencePoint', true);
@@ -363,8 +365,8 @@ const App = () => {
             const parcels = format.readFeatures(msg.parcels);
             parcelsLoaded({ parcels });
             if (settings.parcelRestUrlTemplate != null) {
-              loadParcelInfos({ parcels }).then(() => {
-                parcelInfosLoaded();
+              getTitleDeeds({ parcels }).then((titleDeeds) => {
+                titleDeedsLoaded(titleDeeds);
               });
             }
           } else if (msg.type === 'parcelAreasProgress') {
@@ -387,7 +389,7 @@ const App = () => {
     parcelsLoaded,
     parcelAreasLoaded,
     parcelAreasProgress,
-    parcelInfosLoaded,
+    titleDeedsLoaded,
   ]);
 
   useEffect(() => {

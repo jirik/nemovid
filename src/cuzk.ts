@@ -7,7 +7,7 @@ import type {
 import WFS from 'ol/format/WFS';
 import { assertIsDefined } from './assert.ts';
 import settings from './settings.ts';
-import type { Owner, TitleDeed, Zoning } from './store.ts';
+import type { Owner, SimpleTitleDeed, SimpleZoning } from './store.ts';
 import { fillTemplate } from './template.ts';
 
 export const getParcelsByExtent = async ({ extent }: { extent: Extent }) => {
@@ -37,9 +37,9 @@ export const parcelsGmlToFeatures = ({ gml }: { gml: Document }): Feature[] => {
   return features;
 };
 
-export const loadParcelInfos = async ({ parcels }: { parcels: Feature[] }) => {
+export const getTitleDeeds = async ({ parcels }: { parcels: Feature[] }) => {
   assertIsDefined(settings.parcelRestUrlTemplate);
-  const parcelIdsString = parcels.map(getParcelKnId).join(',');
+  const parcelIdsString = parcels.map((p) => p.getId()).join(',');
   const infoUrl = fillTemplate(settings.parcelRestUrlTemplate, {
     parcelIdsString,
   });
@@ -48,13 +48,14 @@ export const loadParcelInfos = async ({ parcels }: { parcels: Feature[] }) => {
     (await resp.json()) as GeoJSONFeatureCollection;
   const parcelFeatures: GeoJSONFeature[] =
     parcelCollection.features as GeoJSONFeature[];
+  const result: Record<string, SimpleTitleDeed> = {};
   for (const parcel of parcels) {
-    const parcelKnId = getParcelKnId(parcel);
+    const parcelId = parcel.getId() as number;
     const parcelFeature = parcelFeatures.find(
-      (f) => f.properties.par_id === parcelKnId,
+      (f) => f.properties.par_id === parcelId,
     );
     assertIsDefined(parcelFeature);
-    const zoning = getParcelZoning(parcel);
+    const zoningId = getParcelZoning(parcel).id;
     const owners = parseOwners(parcelFeature.properties.vlastnici, {
       contextUrl: settings.parcelRestUrlTemplate,
     });
@@ -63,20 +64,18 @@ export const loadParcelInfos = async ({ parcels }: { parcels: Feature[] }) => {
     console.assert(typeof titleDeedNumber === 'number');
     const titleDeedId = parcelFeature.properties.tel_id as number;
     console.assert(typeof titleDeedId === 'number');
-    if (!(titleDeedNumber in zoning.titleDeeds)) {
-      zoning.titleDeeds[titleDeedNumber] = {
+    if (!(titleDeedId in result)) {
+      result[titleDeedId] = {
         id: titleDeedId,
         number: titleDeedNumber,
         owners,
-        zoning,
+        zoning: zoningId,
+        parcels: [],
       };
     }
-    parcel.set(
-      ParcelTitleDeedPropName,
-      zoning.titleDeeds[titleDeedNumber],
-      true,
-    );
+    result[titleDeedId].parcels.push(parcelId);
   }
+  return result;
 };
 
 const parseOwners = (
@@ -93,29 +92,21 @@ const parseOwners = (
   });
 };
 
-export const getParcelTitleDeed = (parcel: Feature): TitleDeed | null => {
-  return parcel.get(ParcelTitleDeedPropName) || null;
-};
-
-export const getParcelZoning = (parcel: Feature): Zoning => {
-  const zoning: Zoning = parcel.get(ParcelZoningPropName);
-  assertIsDefined(zoning);
-  return zoning;
-};
-
-export const getParcelId = (parcel: Feature): string => {
-  return parcel.getId() as string;
-};
-
-export const getParcelKnId = (parcel: Feature): number => {
-  return Number.parseInt(getParcelId(parcel).split('.')[1]);
-};
-
 export const getParcelLabel = (parcel: Feature): string => {
   const label = parcel.get('label');
   console.assert(typeof label === 'string');
   return label;
 };
 
-export const ParcelTitleDeedPropName = 'statkarParcelTitleDeed';
-export const ParcelZoningPropName = 'statkarParcelZoning';
+export const getParcelZoning = (
+  parcel: Feature,
+): Omit<SimpleZoning, 'titleDeeds' | 'parcels'> => {
+  const url = parcel.get('zoning')['xlink:href'] as string;
+  const title = parcel.get('zoning')['xlink:title'] as string;
+  const id: string = URL.parse(url)?.searchParams.get('Id') as string;
+  assertIsDefined(id);
+  return {
+    id,
+    title,
+  };
+};
