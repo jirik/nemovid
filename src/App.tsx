@@ -22,13 +22,19 @@ import { useEffect, useRef } from 'react';
 import { MIN_MAIN_EXTENT_RADIUS_PX } from '../constants.ts';
 import InfoBar from './InfoBar.tsx';
 import { assertFeature, assertFeatures, assertIsDefined } from './assert.ts';
-import { getParcelsByExtent, parcelsGmlToFeatures } from './cuzk.ts';
+import {
+  getParcelId,
+  getParcelsByExtent,
+  loadParcelInfos,
+  parcelsGmlToFeatures,
+} from './cuzk.ts';
 import {
   ParcelCoveredAreaM2PropName,
   ParcelCoveredAreaPercPropName,
   assertMinExtentRadius,
   loadTileLayerFromWmtsCapabilities,
 } from './olutil.ts';
+import settings from './settings.ts';
 import {
   defaultFilters,
   getIsFileOpened,
@@ -52,6 +58,7 @@ const App = () => {
   const fileOpened = useAppStore((state) => state.fileOpened);
   const parcelsLoaded = useAppStore((state) => state.parcelsLoaded);
   const parcelAreasLoaded = useAppStore((state) => state.parcelAreasLoaded);
+  const parcelInfosLoaded = useAppStore((state) => state.parcelInfosLoaded);
   const mapPointerMove = useAppStore((state) => state.mapPointerMove);
   const parcelAreasProgress = useAppStore((state) => state.parcelAreasProgress);
   const extentFeatures = useAppStore(getMainExtentFeatures);
@@ -82,7 +89,7 @@ const App = () => {
         source: new VectorSource(),
         style: [
           {
-            filter: ['==', ['var', 'highlightedId'], ['get', 'fid']],
+            filter: ['==', ['var', 'highlightedId'], ['id']],
             style: {
               'stroke-color': featureStrokeColor,
               'stroke-width': 3,
@@ -327,7 +334,7 @@ const App = () => {
         const parcelsDict: Record<string, Feature> = {};
         for (const parcelGroup of parcelGroups) {
           for (const parcel of parcelGroup) {
-            const parcelId = parcel.getId() as string;
+            const parcelId = getParcelId(parcel);
             console.assert(typeof parcelId === 'string');
             if (!(parcelId in parcelsDict)) {
               parcelsDict[parcelId] = parcel;
@@ -350,10 +357,16 @@ const App = () => {
         };
         const worker = new Worker(new URL('./worker.ts', import.meta.url));
 
-        worker.onmessage = (event) => {
+        worker.onmessage = async (event) => {
           const msg = event.data as OutgoingMessage;
           if (msg.type === 'coveredParcels') {
-            parcelsLoaded({ parcels: format.readFeatures(msg.parcels) });
+            const parcels = format.readFeatures(msg.parcels);
+            parcelsLoaded({ parcels });
+            if (settings.parcelRestUrlTemplate != null) {
+              loadParcelInfos({ parcels }).then(() => {
+                parcelInfosLoaded();
+              });
+            }
           } else if (msg.type === 'parcelAreasProgress') {
             const { processedParcels } = msg;
             parcelAreasProgress(processedParcels);
@@ -374,6 +387,7 @@ const App = () => {
     parcelsLoaded,
     parcelAreasLoaded,
     parcelAreasProgress,
+    parcelInfosLoaded,
   ]);
 
   useEffect(() => {

@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { MIN_FEATURE_EXTENT_RADIUS } from '../constants.ts';
 import { assertIsDefined } from './assert.ts';
+import { ParcelZoningPropName, getParcelId } from './cuzk.ts';
 import * as olUtil from './olutil.ts';
 import {
   type ParcelAreas,
@@ -24,6 +25,7 @@ interface State {
   highlightedParcel: string | null;
   highlightedFeature: number | null;
   parcelAreasTimestamp: number | null;
+  parcelInfosTimestamp: number | null;
   processedParcels: number | null;
   parcelFilters: ParcelFilters;
 }
@@ -46,6 +48,7 @@ interface Actions {
     highlightedFeature?: Feature | null;
   }) => void;
   parcelAreasProgress: (processedParcels: number) => void;
+  parcelInfosLoaded: () => void;
 }
 
 export const defaultFilters: ParcelFilters = {
@@ -62,6 +65,7 @@ export const useAppStore = create<State & Actions>()(
     highlightedParcel: null,
     highlightedFeature: null,
     parcelAreasTimestamp: null,
+    parcelInfosTimestamp: null,
     parcelFilters: { ...defaultFilters },
     fileOpened: ({ name, features }: { name: string; features: Feature[] }) =>
       set((state) => {
@@ -70,14 +74,16 @@ export const useAppStore = create<State & Actions>()(
         state.parcels = null;
         state.parcelFilters = { ...defaultFilters };
         state.parcelAreasTimestamp = null;
+        state.parcelInfosTimestamp = null;
         state.processedParcels = null;
       }),
     parcelsLoaded: ({ parcels }: { parcels: Feature[] }) =>
       set((state) => {
         const parcelsDict: Record<string, Feature> = {};
         for (const parcel of parcels) {
-          const parcelId = parcel.getId();
-          if (typeof parcelId === 'string' && !(parcelId in parcelsDict)) {
+          const parcelId = getParcelId(parcel);
+          console.assert(typeof parcelId === 'string');
+          if (!(parcelId in parcelsDict)) {
             parcelsDict[parcelId] = parcel;
           }
         }
@@ -109,9 +115,10 @@ export const useAppStore = create<State & Actions>()(
       highlightedFeature?: Feature | null;
     }) =>
       set((state) => {
-        state.highlightedParcel =
-          (highlightedParcel?.getId() as string) || null;
-        const featureFid = highlightedFeature?.get('fid');
+        state.highlightedParcel = highlightedParcel
+          ? getParcelId(highlightedParcel)
+          : null;
+        const featureFid = highlightedFeature?.getId();
         state.highlightedFeature =
           typeof featureFid === 'number' ? featureFid : null;
       }),
@@ -125,6 +132,10 @@ export const useAppStore = create<State & Actions>()(
     parcelAreasProgress: (processedParcels: number) =>
       set((state) => {
         state.processedParcels = processedParcels;
+      }),
+    parcelInfosLoaded: () =>
+      set((state) => {
+        state.parcelInfosTimestamp = Date.now();
       }),
   })),
 );
@@ -150,10 +161,22 @@ export const getMainExtentFeatures = createAppSelector(
   },
 );
 
+export type Owner = {
+  label: string;
+  url: string;
+};
+
+export type TitleDeed = {
+  number: number;
+  owners: Owner[];
+  zoning: Zoning;
+};
+
 export type Zoning = {
   id: string;
   title: string;
   parcels: Feature[];
+  titleDeeds: Record<number, TitleDeed>;
 };
 
 export const getParcelsByZoning = createAppSelector(
@@ -170,9 +193,11 @@ export const getParcelsByZoning = createAppSelector(
           id: zoningId,
           title: zoningTitle,
           parcels: [],
+          titleDeeds: [],
         };
       }
       zonings[zoningId].parcels.push(parcel);
+      parcel.set(ParcelZoningPropName, zonings[zoningId], true);
     }
     for (const zoning of Object.values(zonings)) {
       zoning.parcels.sort((a, b) => {

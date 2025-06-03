@@ -25,7 +25,7 @@ import TileLayer from 'ol/layer/Tile';
 import type VectorSource from 'ol/source/Vector';
 import WMTS, { optionsFromCapabilities } from 'ol/source/WMTS';
 import { assertIsDefined } from './assert.ts';
-import type { ParcelStats } from './store.ts';
+import { getParcelId } from './cuzk.ts';
 
 export const loadTileLayerFromWmtsCapabilities = async ({
   url,
@@ -158,7 +158,7 @@ export const getParcelsByFeatureExtent = ({
   const parcelsByExtent = parcels.filter((parcel) => {
     const parcelGeom = parcel.getGeometry();
     assertIsDefined(parcelGeom);
-    const parcelId = parcel.getId() as string;
+    const parcelId = getParcelId(parcel);
     const foundFeatures = featureSource.getFeaturesInExtent(
       parcelGeom.getExtent(),
     );
@@ -198,7 +198,7 @@ export const getIntersectedParcels = ({
   const parcelsByGeom = parcelsByExtent.filter((parcel) => {
     const parcelJstsGeom = parser.read(parcel.getGeometry());
     console.assert(parcelJstsGeom instanceof JstsPolygon);
-    const parcelId = parcel.getId() as string;
+    const parcelId = getParcelId(parcel);
     const parcelFeaturesByExtent = featuresByParcel[parcelId];
     const intersects = parcelFeaturesByExtent.some((feature) => {
       const featureId = feature.getId() as number;
@@ -256,7 +256,7 @@ export function* setParcelIntersections({
   for (const [parcelIdx, parcel] of parcels.entries()) {
     const parcelJstsGeom = parser.read(parcel.getGeometry());
     console.assert(parcelJstsGeom instanceof JstsPolygon);
-    const parcelId = parcel.getId() as string;
+    const parcelId = getParcelId(parcel);
     const parcelFeaturesByExtent = featuresByParcel[parcelId];
     const parcelIntersections: JstsGeometry[] = [];
     for (const feature of parcelFeaturesByExtent) {
@@ -325,19 +325,4 @@ export const ParcelCoveredAreaPercPropName = 'statkarParcelCoverPerc';
 export type ParcelAreas = {
   coveredAreaM2: number;
   coveredAreaPerc: number;
-};
-
-export const getParcelStats = ({
-  parcels,
-}: { parcels: Feature[] }): ParcelStats => {
-  const result: ParcelStats = {
-    maxCoveredAreaM2: null,
-  };
-  for (const parcel of Object.values(parcels || {})) {
-    result.maxCoveredAreaM2 = Math.max(
-      result.maxCoveredAreaM2 || 0,
-      parcel.get(ParcelCoveredAreaM2PropName),
-    );
-  }
-  return result;
 };

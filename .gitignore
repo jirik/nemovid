@@ -13,3 +13,9 @@ dist/
 /.idea
 
 /data
+
+/src/settings.*
+!/src/settings.ts
+!/src/settings.default.ts
+
+.env

@@ -1,7 +1,9 @@
-import { useCallback } from 'react';
+import { type ReactElement, useCallback } from 'react';
 import styles from './InfoBar.module.css';
 import { SliderInput } from './SliderInput.tsx';
 import { assertIsDefined } from './assert.ts';
+import { getParcelKnId, getParcelLabel, getParcelTitleDeed } from './cuzk.ts';
+import settings from './settings.ts';
 import {
   type Zoning,
   getAreaFiltersState,
@@ -9,17 +11,50 @@ import {
   getParcelsByZoning,
   useAppStore,
 } from './store.ts';
+import { fillTemplate } from './template.ts';
 
 const ZoningSection = ({ zoning }: { zoning: Zoning }) => {
+  // to refresh if parcel infos are loaded
+  useAppStore((state) => state.parcelInfosTimestamp);
   return (
     <div className={styles.section}>
       <h3>Katastrální území {zoning.title}</h3>
       <div>Celkem parcel: {Object.values(zoning.parcels).length}</div>
       <ul>
         {zoning.parcels.map((parcel) => {
-          const parcelId = parcel.getId() as string;
-          const parcelLabel = parcel.get('label') as string;
-          return <li key={parcelId}>č. p. {parcelLabel}</li>;
+          const parcelKnId = getParcelKnId(parcel);
+          const parcelLabel = getParcelLabel(parcel);
+          const parcelTitleDeed = getParcelTitleDeed(parcel);
+          let parcelLabelJsx: ReactElement = <>č. p. {parcelLabel}</>;
+          if (settings.parcelInfoUrlTemplate != null) {
+            const parcelInfoUrl = fillTemplate(settings.parcelInfoUrlTemplate, {
+              parcelKnId,
+            });
+            parcelLabelJsx = (
+              <a href={parcelInfoUrl} target="blank">
+                {parcelLabelJsx}
+              </a>
+            );
+          }
+          return (
+            <li key={parcelKnId}>
+              {parcelLabelJsx}
+              {parcelTitleDeed != null ? `, LV ${parcelTitleDeed.number}` : null}
+              {parcelTitleDeed != null
+                ? [
+                    ', ',
+                    parcelTitleDeed.owners.map((owner, idx) => {
+                      return [
+                        idx > 0 && ', ',
+                        <a key={owner.url} href={owner.url}>
+                          {owner.label}
+                        </a>,
+                      ];
+                    }),
+                  ]
+                : null}
+            </li>
+          );
         })}
       </ul>
     </div>
