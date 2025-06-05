@@ -253,21 +253,9 @@ export const getFilteredParcels = createAppSelector(
 );
 
 export const getZonings = createAppSelector(
-  [
-    (state) => state.zonings,
-    getFilteredParcels,
-    (state) => state.titleDeeds,
-    (state) => state.parcelFilters,
-  ],
-  (simpleZonings, filteredParcels, simpleTitleDeeds, parcelFilters) => {
+  [(state) => state.zonings, getFilteredParcels, (state) => state.titleDeeds],
+  (simpleZonings, filteredParcels, simpleTitleDeeds) => {
     const simpleParcels = filteredParcels;
-    console.log(
-      'getZonings',
-      Object.values(simpleZonings || {}).length,
-      Object.values(simpleParcels || {}).length,
-      Object.values(simpleTitleDeeds || {}).length,
-      parcelFilters,
-    );
     if (simpleZonings == null || simpleParcels == null) {
       return null;
     }

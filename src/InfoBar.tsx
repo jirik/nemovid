@@ -1,3 +1,4 @@
+import { saveAs } from 'file-saver';
 import { type ReactNode, useCallback } from 'react';
 import styles from './InfoBar.module.css';
 import { SliderInput } from './SliderInput.tsx';
@@ -12,6 +13,7 @@ import {
   useAppStore,
 } from './store.ts';
 import { fillTemplate } from './template.ts';
+import { getWorkbook } from './xlsx.ts';
 
 const ZoningSection = ({ zoning }: { zoning: Zoning }) => {
   // to refresh if parcel infos are loaded
@@ -81,15 +83,37 @@ const ZoningSection = ({ zoning }: { zoning: Zoning }) => {
 const ParcelsSection = () => {
   const parcels = useAppStore(getParcels);
   const zonings = useAppStore(getZonings);
+
+  let content: ReactNode = null;
+  if (parcels == null) {
+    content = <div>Načítá se ...</div>;
+  } else {
+    content = (
+      <div>
+        Celkem parcel: {Object.values(parcels).length}{' '}
+        <button
+          type="button"
+          onClick={async () => {
+            assertIsDefined(zonings);
+            const workbook = getWorkbook({ zonings: Object.values(zonings) });
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], {
+              type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            });
+            saveAs(blob, 'parcely.xlsx');
+          }}
+        >
+          Stáhnout parcely
+        </button>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className={styles.section}>
         <h3>Dotčené parcely</h3>
-        <div>
-          {parcels == null
-            ? 'Načítá se ...'
-            : `Celkem parcel: ${Object.values(parcels).length}`}
-        </div>
+        {content}
       </div>
       {Object.values(zonings || {}).map((zoning) => {
         return <ZoningSection key={zoning.id} zoning={zoning} />;
