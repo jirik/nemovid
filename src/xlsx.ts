@@ -1,4 +1,4 @@
-import { Workbook } from 'exceljs';
+import { ValueType, Workbook, type Worksheet } from 'exceljs';
 import type { Zoning } from './store.ts';
 
 export const getWorkbook = ({ zonings }: { zonings: Zoning[] }): Workbook => {
@@ -31,6 +31,7 @@ const addZoningSheet = (
   });
   sheet.addRows(rows);
   sheet.getRow(1).font = { bold: true };
+  adjustWidths(sheet);
   return sheet;
 };
 
@@ -63,5 +64,23 @@ const addParcelSheet = (
   );
   sheet.addRows(rows);
   sheet.getRow(1).font = { bold: true };
+  adjustWidths(sheet);
   return sheet;
+};
+
+const adjustWidths = (sheet: Worksheet) => {
+  for (let c = 1; c <= sheet.columnCount; c++) {
+    const col = sheet.getColumn(c);
+    let maxWidth = 0;
+    col.eachCell((cell) => {
+      if (cell.type === ValueType.String) {
+        maxWidth = Math.max(maxWidth, (cell.value as string).length);
+      } else if (cell.type === ValueType.Number) {
+        maxWidth = Math.max(maxWidth, (cell.value as number).toString().length);
+      } else {
+        console.error('Unknown cell type', cell.type, cell.value);
+      }
+    });
+    col.width = Math.ceil(maxWidth * 1.2);
+  }
 };
