@@ -4,6 +4,7 @@ import type { Zoning } from './store.ts';
 export const getWorkbook = ({ zonings }: { zonings: Zoning[] }): Workbook => {
   const workbook = new Workbook();
   addParcelSheet(zonings, { workbook });
+  addTitleDeedSheet(zonings, { workbook });
   addZoningSheet(zonings, { workbook });
   return workbook;
 };
@@ -68,6 +69,41 @@ const addParcelSheet = (
   return sheet;
 };
 
+const addTitleDeedSheet = (
+  zonings: Zoning[],
+  { workbook }: { workbook: Workbook },
+) => {
+  const sheet = workbook.addWorksheet('Listy vlastnictví', {
+    views: [{ state: 'frozen', xSplit: 3, ySplit: 1 }],
+  });
+  sheet.columns = [
+    { header: 'Název KÚ', key: 'zoningTitle' },
+    { header: 'ID LV', key: 'id' },
+    { header: 'Číslo LV', key: 'number' },
+    { header: 'Parcely', key: 'parcels' },
+  ];
+  const rows: Record<string, string | number | undefined>[] = zonings.reduce(
+    (prev: Record<string, string | number | undefined>[], zoning) => {
+      for (const titleDeed of Object.values(zoning.titleDeeds).sort(
+        (a, b) => a.number - b.number,
+      )) {
+        prev.push({
+          zoningTitle: zoning.title,
+          id: titleDeed.id.toString(),
+          number: titleDeed.number.toString(),
+          parcels: titleDeed.parcels.map((parcel) => parcel.label).join(', '),
+        });
+      }
+      return prev;
+    },
+    [],
+  );
+  sheet.addRows(rows);
+  sheet.getRow(1).font = { bold: true };
+  adjustWidths(sheet);
+  return sheet;
+};
+
 const adjustWidths = (sheet: Worksheet) => {
   for (let c = 1; c <= sheet.columnCount; c++) {
     const col = sheet.getColumn(c);
@@ -81,6 +117,6 @@ const adjustWidths = (sheet: Worksheet) => {
         console.error('Unknown cell type', cell.type, cell.value);
       }
     });
-    col.width = Math.ceil(maxWidth * 1.2);
+    col.width = Math.min(Math.ceil(maxWidth * 1.2), 20);
   }
 };
