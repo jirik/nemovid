@@ -7,7 +7,7 @@ import type {
 import WFS from 'ol/format/WFS';
 import { assertIsDefined } from './assert.ts';
 import settings from './settings.ts';
-import type { Owner, SimpleTitleDeed, SimpleZoning } from './store.ts';
+import type { SimpleOwner, SimpleTitleDeed, SimpleZoning } from './store.ts';
 import { fillTemplate } from './template.ts';
 
 export const getParcelsByExtent = async ({ extent }: { extent: Extent }) => {
@@ -37,7 +37,12 @@ export const parcelsGmlToFeatures = ({ gml }: { gml: Document }): Feature[] => {
   return features;
 };
 
-export const getTitleDeeds = async ({ parcels }: { parcels: Feature[] }) => {
+export const getTitleDeeds = async ({
+  parcels,
+}: { parcels: Feature[] }): Promise<{
+  titleDeeds: Record<string, SimpleTitleDeed>;
+  owners: Record<string, SimpleOwner>;
+}> => {
   assertIsDefined(settings.parcelRestUrlTemplate);
   const parcelIdsString = parcels.map((p) => p.getId()).join(',');
   const infoUrl = fillTemplate(settings.parcelRestUrlTemplate, {
@@ -48,7 +53,8 @@ export const getTitleDeeds = async ({ parcels }: { parcels: Feature[] }) => {
     (await resp.json()) as GeoJSONFeatureCollection;
   const parcelFeatures: GeoJSONFeature[] =
     parcelCollection.features as GeoJSONFeature[];
-  const result: Record<string, SimpleTitleDeed> = {};
+  const allTitleDeeds: Record<string, SimpleTitleDeed> = {};
+  const allOwners: Record<string, SimpleOwner> = {};
   for (const parcel of parcels) {
     const parcelId = parcel.getId() as number;
     const parcelFeature = parcelFeatures.find(
@@ -58,37 +64,53 @@ export const getTitleDeeds = async ({ parcels }: { parcels: Feature[] }) => {
     const zoningId = getParcelZoning(parcel).id;
     const owners = parseOwners(parcelFeature.properties.vlastnici, {
       contextUrl: settings.parcelRestUrlTemplate,
+      allOwners: allOwners,
     });
     console.assert(owners.length > 0);
     const titleDeedNumber = parcelFeature.properties.lv as number;
     console.assert(typeof titleDeedNumber === 'number');
     const titleDeedId = parcelFeature.properties.tel_id as number;
     console.assert(typeof titleDeedId === 'number');
-    if (!(titleDeedId in result)) {
-      result[titleDeedId] = {
+    if (!(titleDeedId in allTitleDeeds)) {
+      allTitleDeeds[titleDeedId] = {
         id: titleDeedId,
         number: titleDeedNumber,
-        owners,
+        owners: owners.map((o) => o.id),
         zoning: zoningId,
         parcels: [],
       };
     }
-    result[titleDeedId].parcels.push(parcelId);
+    allTitleDeeds[titleDeedId].parcels.push(parcelId);
   }
-  return result;
+  return {
+    titleDeeds: allTitleDeeds,
+    owners: allOwners,
+  };
 };
 
 const parseOwners = (
   str: string,
-  { contextUrl }: { contextUrl: string },
-): Owner[] => {
+  {
+    contextUrl,
+    allOwners,
+  }: { contextUrl: string; allOwners: Record<string, SimpleOwner> },
+): SimpleOwner[] => {
   const matches = [...str.matchAll(/href="(?<url>.*?)".*?>(?<label>.*?)<\//g)];
   return matches.map((match) => {
-    const owner: Owner = match.groups as Owner;
-    return {
-      ...owner,
-      url: new URL(owner.url, contextUrl).href,
-    };
+    const owner = match.groups as Pick<SimpleOwner, 'label' | 'url'>;
+    const url = new URL(owner.url, contextUrl);
+    const id = url.searchParams.get('ID');
+    assertIsDefined(id);
+    if (!(id in allOwners)) {
+      allOwners[id] = {
+        ...owner,
+        url: url.href,
+        id: Number.parseInt(id),
+        titleDeeds: [],
+      };
+    }
+    const result = allOwners[id];
+    return result;
   });
 };
 

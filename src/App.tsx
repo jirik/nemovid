@@ -365,8 +365,8 @@ const App = () => {
             const parcels = format.readFeatures(msg.parcels);
             parcelsLoaded({ parcels });
             if (settings.parcelRestUrlTemplate != null) {
-              getTitleDeeds({ parcels }).then((titleDeeds) => {
-                titleDeedsLoaded(titleDeeds);
+              getTitleDeeds({ parcels }).then(({ titleDeeds, owners }) => {
+                titleDeedsLoaded({ titleDeeds, owners });
               });
             }
           } else if (msg.type === 'parcelAreasProgress') {

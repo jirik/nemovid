@@ -26,6 +26,7 @@ interface State {
   parcelFeatures: Record<string, Feature> | null;
   zonings: Record<string, SimpleZoning> | null;
   titleDeeds: Record<string, SimpleTitleDeed> | null;
+  owners: Record<string, SimpleOwner> | null;
   highlightedParcel: number | null;
   highlightedFeature: number | null;
   parcelAreasTimestamp: number | null;
@@ -52,7 +53,13 @@ interface Actions {
     highlightedFeature?: Feature | null;
   }) => void;
   parcelAreasProgress: (processedParcels: number) => void;
-  titleDeedsLoaded: (titleDeeds: Record<string, SimpleTitleDeed>) => void;
+  titleDeedsLoaded: ({
+    titleDeeds,
+    owners,
+  }: {
+    titleDeeds: Record<string, SimpleTitleDeed>;
+    owners: Record<string, SimpleOwner>;
+  }) => void;
 }
 
 export const defaultFilters: ParcelFilters = {
@@ -68,6 +75,7 @@ export const useAppStore = create<State & Actions>()(
     parcelFeatures: null,
     zonings: null,
     titleDeeds: null,
+    owners: null,
     processedParcels: null,
     highlightedParcel: null,
     highlightedFeature: null,
@@ -82,6 +90,7 @@ export const useAppStore = create<State & Actions>()(
         state.parcelFeatures = null;
         state.zonings = null;
         state.titleDeeds = null;
+        state.owners = null;
         state.parcelFilters = { ...defaultFilters };
         state.parcelAreasTimestamp = null;
         state.parcelInfosTimestamp = null;
@@ -167,9 +176,16 @@ export const useAppStore = create<State & Actions>()(
       set((state) => {
         state.processedParcels = processedParcels;
       }),
-    titleDeedsLoaded: (titleDeeds: Record<string, SimpleTitleDeed>) =>
+    titleDeedsLoaded: ({
+      titleDeeds,
+      owners,
+    }: {
+      titleDeeds: Record<string, SimpleTitleDeed>;
+      owners: Record<string, SimpleOwner>;
+    }) =>
       set((state) => {
         state.titleDeeds = titleDeeds;
+        state.owners = owners;
         state.parcelInfosTimestamp = Date.now();
       }),
   })),
@@ -197,8 +213,10 @@ export const getMainExtentFeatures = createAppSelector(
 );
 
 export type Owner = {
+  id: number;
   label: string;
   url: string;
+  titleDeeds: TitleDeed[];
 };
 
 export type TitleDeed = {
@@ -227,14 +245,22 @@ export type SimpleZoning = Omit<Zoning, 'parcels' | 'titleDeeds'> & {
   parcels: number[];
   titleDeeds: number[];
 };
-export type SimpleTitleDeed = Omit<TitleDeed, 'zoning' | 'parcels'> & {
+export type SimpleTitleDeed = Omit<
+  TitleDeed,
+  'zoning' | 'parcels' | 'owners'
+> & {
   zoning: string;
   parcels: number[];
+  owners: number[];
 };
 
 export type SimpleParcel = Omit<Parcel, 'zoning' | 'titleDeed'> & {
   zoning: string;
   titleDeed: number | null;
+};
+
+export type SimpleOwner = Omit<Owner, 'titleDeeds'> & {
+  titleDeeds: number[];
 };
 
 export const getFilteredParcels = createAppSelector(
@@ -253,10 +279,19 @@ export const getFilteredParcels = createAppSelector(
 );
 
 export const getZonings = createAppSelector(
-  [(state) => state.zonings, getFilteredParcels, (state) => state.titleDeeds],
-  (simpleZonings, filteredParcels, simpleTitleDeeds) => {
+  [
+    (state) => state.zonings,
+    getFilteredParcels,
+    (state) => state.titleDeeds,
+    (state) => state.owners,
+  ],
+  (simpleZonings, filteredParcels, simpleTitleDeeds, simpleOwners) => {
     const simpleParcels = filteredParcels;
-    if (simpleZonings == null || simpleParcels == null) {
+    if (
+      simpleZonings == null ||
+      simpleParcels == null ||
+      simpleOwners == null
+    ) {
       return null;
     }
     const zonings = Object.values(simpleZonings || {}).reduce(
@@ -292,13 +327,24 @@ export const getZonings = createAppSelector(
                 assertIsDefined(parcel);
                 return parcel;
               });
+            const owners: Owner[] = simpleTitleDeed.owners.map((ownerId) => {
+              return {
+                ...simpleOwners[ownerId],
+                titleDeeds: [],
+                parcels: [],
+              };
+            });
             const titleDeed: TitleDeed = {
               ...simpleTitleDeed,
               parcels,
               zoning,
+              owners,
             };
-            for (const p of parcels) {
-              p.titleDeed = titleDeed;
+            for (const owner of owners) {
+              owner.titleDeeds.push(titleDeed);
+            }
+            for (const parcel of parcels) {
+              parcel.titleDeed = titleDeed;
             }
             return titleDeed;
           },

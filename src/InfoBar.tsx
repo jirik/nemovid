@@ -49,7 +49,12 @@ const ZoningSection = ({ zoning }: { zoning: Zoning }) => {
               );
               titleDeedJsx = [
                 ', ',
-                <a key="link" href={titleDeedUrl}>
+                <a
+                  key="link"
+                  href={titleDeedUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   LV {titleDeed.number}
                 </a>,
               ];
@@ -65,7 +70,12 @@ const ZoningSection = ({ zoning }: { zoning: Zoning }) => {
                     titleDeed.owners.map((owner, idx) => {
                       return [
                         idx > 0 && ', ',
-                        <a key={owner.url} href={owner.url}>
+                        <a
+                          key={owner.url}
+                          href={owner.url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
                           {owner.label}
                         </a>,
                       ];
