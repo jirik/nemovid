@@ -4,4 +4,5 @@ export default {
   parcelRestUrlTemplate: null,
   parcelInfoUrlTemplate: null,
   titleDeedInfoUrlTemplate: null,
+  ownerInfoUrlTemplate: null,
 } satisfies Settings;

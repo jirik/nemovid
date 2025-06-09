@@ -215,7 +215,6 @@ export const getMainExtentFeatures = createAppSelector(
 export type Owner = {
   id: number;
   label: string;
-  url: string;
   titleDeeds: TitleDeed[];
 };
 

@@ -68,17 +68,24 @@ const ZoningSection = ({ zoning }: { zoning: Zoning }) => {
                 ? [
                     ', ',
                     titleDeed.owners.map((owner, idx) => {
-                      return [
-                        idx > 0 && ', ',
-                        <a
-                          key={owner.url}
-                          href={owner.url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          {owner.label}
-                        </a>,
-                      ];
+                      let ownerJsx: ReactNode = owner.label;
+                      if (settings.ownerInfoUrlTemplate != null) {
+                        const ownerUrl = fillTemplate(
+                          settings.ownerInfoUrlTemplate,
+                          { ownerId: owner.id },
+                        );
+                        ownerJsx = (
+                          <a
+                            key={owner.id}
+                            href={ownerUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {ownerJsx}
+                          </a>
+                        );
+                      }
+                      return [idx > 0 && ', ', ownerJsx];
                     }),
                   ]
                 : null}

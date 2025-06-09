@@ -97,15 +97,16 @@ const parseOwners = (
 ): SimpleOwner[] => {
   const matches = [...str.matchAll(/href="(?<url>.*?)".*?>(?<label>.*?)<\//g)];
   return matches.map((match) => {
-    const owner = match.groups as Pick<SimpleOwner, 'label' | 'url'>;
-    const url = new URL(owner.url, contextUrl);
+    const ownerLink = match.groups as Pick<SimpleOwner, 'label'> & {
+      url: string;
+    };
+    const url = new URL(ownerLink.url, contextUrl);
     const id = url.searchParams.get('ID');
     assertIsDefined(id);
     if (!(id in allOwners)) {
       allOwners[id] = {
-        ...owner,
-        url: url.href,
         id: Number.parseInt(id),
+        label: ownerLink.label,
         titleDeeds: [],
       };
     }
