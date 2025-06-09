@@ -286,11 +286,7 @@ export const getZonings = createAppSelector(
   ],
   (simpleZonings, filteredParcels, simpleTitleDeeds, simpleOwners) => {
     const simpleParcels = filteredParcels;
-    if (
-      simpleZonings == null ||
-      simpleParcels == null ||
-      simpleOwners == null
-    ) {
+    if (simpleZonings == null || simpleParcels == null) {
       return null;
     }
     const allOwners: Record<string, Owner> = {};
@@ -301,7 +297,10 @@ export const getZonings = createAppSelector(
           .map((pid) => simpleParcels[pid]);
         const zoningSimpleTitleDeeds: SimpleTitleDeed[] = [];
         for (const simpleTitleDeed of Object.values(simpleTitleDeeds || {})) {
-          if (simpleTitleDeed.zoning === simpleZoning.id) {
+          if (
+            simpleTitleDeed.zoning === simpleZoning.id &&
+            simpleTitleDeed.parcels.find((pid) => pid in simpleParcels)
+          ) {
             zoningSimpleTitleDeeds.push(simpleTitleDeed);
           }
         }
@@ -327,15 +326,17 @@ export const getZonings = createAppSelector(
                 assertIsDefined(parcel);
                 return parcel;
               });
-            const owners: Owner[] = simpleTitleDeed.owners.map((ownerId) => {
-              if (!(ownerId in allOwners)) {
-                allOwners[ownerId] = {
-                  ...simpleOwners[ownerId],
-                  titleDeeds: [],
-                };
-              }
-              return allOwners[ownerId];
-            });
+            const owners: Owner[] = simpleOwners
+              ? simpleTitleDeed.owners.map((ownerId) => {
+                  if (!(ownerId in allOwners)) {
+                    allOwners[ownerId] = {
+                      ...simpleOwners[ownerId],
+                      titleDeeds: [],
+                    };
+                  }
+                  return allOwners[ownerId];
+                })
+              : [];
             const titleDeed: TitleDeed = {
               ...simpleTitleDeed,
               parcels,
