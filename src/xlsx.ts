@@ -188,6 +188,8 @@ const adjustWidths = (sheet: Worksheet) => {
         maxWidth = Math.max(maxWidth, (cell.value as string).length);
       } else if (cell.type === ValueType.Number) {
         maxWidth = Math.max(maxWidth, (cell.value as number).toString().length);
+      } else if (cell.type === ValueType.Null) {
+        // width is 0
       } else {
         console.error('Unknown cell type', cell.type, cell.value);
       }
