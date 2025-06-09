@@ -304,9 +304,16 @@ export function* setParcelIntersections({
         parcelIntersection = parcelIntersection
           ? JstsOverlayOp.union(parcelIntersection, isection)
           : isection;
-      } catch (e) {
-        console.error(`Some problem when unioning intersection ${parcelId}`);
-        console.error(e);
+      } catch (_e) {
+        const bufferDist = 0.00001;
+        console.warn(
+          `Some problem when unioning intersections of parcel ${parcelId}, increasing buffer to ${bufferDist}`,
+        );
+        const buferredIsection = JstsBufferOp.bufferOp(isection, bufferDist);
+        parcelIntersection = JstsOverlayOp.union(
+          JstsBufferOp.bufferOp(parcelIntersection, 0),
+          buferredIsection,
+        );
       }
     }
     assertIsDefined(parcelIntersection);
