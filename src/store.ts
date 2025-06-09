@@ -4,7 +4,7 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { MIN_FEATURE_EXTENT_RADIUS } from '../constants.ts';
 import { assertIsDefined } from './assert.ts';
-import { getParcelLabel, getParcelZoning } from './cuzk.ts';
+import { getParcelLabel, getParcelZoning, sortParcelByLabel } from './cuzk.ts';
 import * as olUtil from './olutil.ts';
 import {
   type ParcelAreas,
@@ -293,6 +293,7 @@ export const getZonings = createAppSelector(
     ) {
       return null;
     }
+    const allOwners: Record<string, Owner> = {};
     const zonings = Object.values(simpleZonings || {}).reduce(
       (prev: Record<string, Zoning>, simpleZoning) => {
         const zoningSimpleParcels = simpleZoning.parcels
@@ -327,11 +328,13 @@ export const getZonings = createAppSelector(
                 return parcel;
               });
             const owners: Owner[] = simpleTitleDeed.owners.map((ownerId) => {
-              return {
-                ...simpleOwners[ownerId],
-                titleDeeds: [],
-                parcels: [],
-              };
+              if (!(ownerId in allOwners)) {
+                allOwners[ownerId] = {
+                  ...simpleOwners[ownerId],
+                  titleDeeds: [],
+                };
+              }
+              return allOwners[ownerId];
             });
             const titleDeed: TitleDeed = {
               ...simpleTitleDeed,
@@ -364,15 +367,7 @@ export const getZonings = createAppSelector(
       {},
     );
     for (const zoning of Object.values(zonings)) {
-      zoning.parcels.sort((a, b) => {
-        const aParts = (a.label as string)
-          .split(/\D+/)
-          .map((s) => Number.parseInt(s));
-        const bParts = (b.label as string)
-          .split(/\D+/)
-          .map((s) => Number.parseInt(s));
-        return aParts[0] - bParts[0] || aParts[1] - bParts[1];
-      });
+      zoning.parcels.sort(sortParcelByLabel);
     }
     return zonings;
   },
@@ -389,6 +384,23 @@ export const getParcels = createAppSelector([getZonings], (zonings) => {
     }
   }
   return parcels;
+});
+
+export const getOwners = createAppSelector([getZonings], (zonings) => {
+  if (zonings == null) {
+    return null;
+  }
+  const ownersDict: Record<string, Owner> = {};
+  for (const zoning of Object.values(zonings)) {
+    for (const titleDeed of Object.values(zoning.titleDeeds)) {
+      for (const owner of Object.values(titleDeed.owners)) {
+        if (!(owner.id in ownersDict)) {
+          ownersDict[owner.id] = owner;
+        }
+      }
+    }
+  }
+  return Object.values(ownersDict);
 });
 
 export const getParcelStats = createAppSelector(

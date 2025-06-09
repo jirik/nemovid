@@ -1,10 +1,15 @@
 import { ValueType, Workbook, type Worksheet } from 'exceljs';
-import type { Zoning } from './store.ts';
+import { sortParcelByLabel } from './cuzk.ts';
+import type { Owner, Parcel, TitleDeed, Zoning } from './store.ts';
 
-export const getWorkbook = ({ zonings }: { zonings: Zoning[] }): Workbook => {
+export const getWorkbook = ({
+  zonings,
+  owners,
+}: { zonings: Zoning[]; owners: Owner[] }): Workbook => {
   const workbook = new Workbook();
   addParcelSheet(zonings, { workbook });
   addTitleDeedSheet(zonings, { workbook });
+  addOwnerSheet(owners, { workbook });
   addZoningSheet(zonings, { workbook });
   return workbook;
 };
@@ -48,6 +53,7 @@ const addParcelSheet = (
     { header: 'ID parcely', key: 'id' },
     { header: 'Číslo parcely', key: 'label' },
     { header: 'LV', key: 'titleDeed' },
+    { header: 'Vlastníci', key: 'owners' },
   ];
   const rows: Record<string, string | number | undefined>[] = zonings.reduce(
     (prev: Record<string, string | number | undefined>[], zoning) => {
@@ -57,6 +63,9 @@ const addParcelSheet = (
           id: parcel.id.toString(),
           label: parcel.label,
           titleDeed: parcel.titleDeed?.number?.toString(),
+          owners: (
+            parcel.titleDeed?.owners?.map((owner) => owner.label) || []
+          ).join(', '),
         });
       }
       return prev;
@@ -81,6 +90,7 @@ const addTitleDeedSheet = (
     { header: 'ID LV', key: 'id' },
     { header: 'Číslo LV', key: 'number' },
     { header: 'Parcely', key: 'parcels' },
+    { header: 'Vlastníci', key: 'owners' },
   ];
   const rows: Record<string, string | number | undefined>[] = zonings.reduce(
     (prev: Record<string, string | number | undefined>[], zoning) => {
@@ -92,11 +102,76 @@ const addTitleDeedSheet = (
           id: titleDeed.id.toString(),
           number: titleDeed.number.toString(),
           parcels: titleDeed.parcels.map((parcel) => parcel.label).join(', '),
+          owners: (titleDeed.owners.map((owner) => owner.label) || []).join(
+            ', ',
+          ),
         });
       }
       return prev;
     },
     [],
+  );
+  sheet.addRows(rows);
+  sheet.getRow(1).font = { bold: true };
+  adjustWidths(sheet);
+  return sheet;
+};
+
+const addOwnerSheet = (
+  owners: Owner[],
+  { workbook }: { workbook: Workbook },
+) => {
+  const sheet = workbook.addWorksheet('Vlastníci', {
+    views: [{ state: 'frozen', xSplit: 2, ySplit: 1 }],
+  });
+  sheet.columns = [
+    { header: 'Vlastník', key: 'ownerLabel' },
+    { header: 'ID vlastníka', key: 'id' },
+    { header: 'LV', key: 'titleDeeds' },
+    { header: 'Parcely', key: 'parcels' },
+  ];
+  const sortedOwners = owners.toSorted((a, b) =>
+    a.label.localeCompare(b.label),
+  );
+  const rows: Record<string, string | number | undefined>[] = sortedOwners.map(
+    (owner) => {
+      const titleDeedsByZoning: Record<string, TitleDeed[]> = {};
+      const zonings: Record<string, Zoning> = {};
+      for (const titleDeed of owner.titleDeeds) {
+        const zoning = titleDeed.zoning;
+        if (!(zoning.id in zonings)) {
+          zonings[zoning.id] = zoning;
+          titleDeedsByZoning[zoning.id] = [];
+        }
+        titleDeedsByZoning[zoning.id].push(titleDeed);
+      }
+      const zoningsList = Object.values(zonings).sort((a, b) =>
+        a.title.localeCompare(b.title),
+      );
+      return {
+        ownerLabel: owner.label,
+        id: owner.id.toString(),
+        titleDeeds: zoningsList
+          .map((zoning) => {
+            const titleDeeds = titleDeedsByZoning[zoning.id].sort(
+              (a, b) => a.number - b.number,
+            );
+            return `${zoning.title}: ${titleDeeds.map((td) => td.number).join(', ')}`;
+          })
+          .join('; '),
+        parcels: zoningsList
+          .map((zoning) => {
+            const parcels = titleDeedsByZoning[zoning.id]
+              .reduce((prev: Parcel[], td) => {
+                prev.push(...td.parcels);
+                return prev;
+              }, [])
+              .sort(sortParcelByLabel);
+            return `${zoning.title}: ${parcels.map((p) => p.label).join(', ')}`;
+          })
+          .join('; '),
+      };
+    },
   );
   sheet.addRows(rows);
   sheet.getRow(1).font = { bold: true };

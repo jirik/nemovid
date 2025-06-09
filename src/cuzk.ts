@@ -7,7 +7,12 @@ import type {
 import WFS from 'ol/format/WFS';
 import { assertIsDefined } from './assert.ts';
 import settings from './settings.ts';
-import type { SimpleOwner, SimpleTitleDeed, SimpleZoning } from './store.ts';
+import type {
+  Parcel,
+  SimpleOwner,
+  SimpleTitleDeed,
+  SimpleZoning,
+} from './store.ts';
 import { fillTemplate } from './template.ts';
 
 export const getParcelsByExtent = async ({ extent }: { extent: Extent }) => {
@@ -132,4 +137,14 @@ export const getParcelZoning = (
     id,
     title,
   };
+};
+
+export const sortParcelByLabel = (a: Parcel, b: Parcel) => {
+  const aParts = (a.label as string)
+    .split(/\D+/)
+    .map((s) => Number.parseInt(s));
+  const bParts = (b.label as string)
+    .split(/\D+/)
+    .map((s) => Number.parseInt(s));
+  return aParts[0] - bParts[0] || aParts[1] - bParts[1];
 };

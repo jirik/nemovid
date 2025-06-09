@@ -7,6 +7,7 @@ import settings from './settings.ts';
 import {
   type Zoning,
   getAreaFiltersState,
+  getOwners,
   getParcelStats,
   getParcels,
   getZonings,
@@ -100,6 +101,7 @@ const ZoningSection = ({ zoning }: { zoning: Zoning }) => {
 const ParcelsSection = () => {
   const parcels = useAppStore(getParcels);
   const zonings = useAppStore(getZonings);
+  const owners = useAppStore(getOwners);
 
   let content: ReactNode = null;
   if (parcels == null) {
@@ -112,7 +114,11 @@ const ParcelsSection = () => {
           type="button"
           onClick={async () => {
             assertIsDefined(zonings);
-            const workbook = getWorkbook({ zonings: Object.values(zonings) });
+            assertIsDefined(owners);
+            const workbook = getWorkbook({
+              zonings: Object.values(zonings),
+              owners,
+            });
             const buffer = await workbook.xlsx.writeBuffer();
             const blob = new Blob([buffer], {
               type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
