@@ -2,6 +2,7 @@ import { saveAs } from 'file-saver';
 import { type ReactNode, useCallback } from 'react';
 import styles from './InfoBar.module.css';
 import { SliderInput } from './SliderInput.tsx';
+import { parcelFiltersChanged } from './actions.ts';
 import { assertIsDefined } from './assert.ts';
 import settings from './settings.ts';
 import {
@@ -149,30 +150,21 @@ const FilterSection = () => {
   const areaFiltersState = useAppStore(getAreaFiltersState);
   const parcelStats = useAppStore(getParcelStats);
   const parcelFilters = useAppStore((state) => state.parcelFilters);
-  const parcelFiltersChanged = useAppStore(
-    (state) => state.parcelFiltersChanged,
-  );
   const processedParcels = useAppStore((state) => state.processedParcels);
   const parcels = useAppStore((state) => state.parcels);
 
-  const maxCoveredAreaM2Cb = useCallback(
-    (value: number | string) => {
-      parcelFiltersChanged({
-        maxCoveredAreaM2:
-          typeof value === 'string' ? Number.parseInt(value) : value,
-      });
-    },
-    [parcelFiltersChanged],
-  );
-  const maxCoveredAreaPercCb = useCallback(
-    (value: number | string) => {
-      parcelFiltersChanged({
-        maxCoveredAreaPerc:
-          typeof value === 'string' ? Number.parseInt(value) : value,
-      });
-    },
-    [parcelFiltersChanged],
-  );
+  const maxCoveredAreaM2Cb = useCallback((value: number | string) => {
+    parcelFiltersChanged({
+      maxCoveredAreaM2:
+        typeof value === 'string' ? Number.parseInt(value) : value,
+    });
+  }, []);
+  const maxCoveredAreaPercCb = useCallback((value: number | string) => {
+    parcelFiltersChanged({
+      maxCoveredAreaPerc:
+        typeof value === 'string' ? Number.parseInt(value) : value,
+    });
+  }, []);
   let content: React.ReactElement | null;
   if (areaFiltersState == null) {
     assertIsDefined(parcels);

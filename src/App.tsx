@@ -21,6 +21,15 @@ import proj4 from 'proj4';
 import { useEffect, useRef } from 'react';
 import { MIN_MAIN_EXTENT_RADIUS_PX } from '../constants.ts';
 import InfoBar from './InfoBar.tsx';
+import {
+  codeListsLoaded,
+  fileOpened,
+  mapPointerMove,
+  parcelAreasLoaded,
+  parcelAreasProgress,
+  parcelsLoaded,
+  titleDeedsLoaded,
+} from './actions.ts';
 import { assertFeature, assertFeatures, assertIsDefined } from './assert.ts';
 import {
   type CodeList,
@@ -57,13 +66,6 @@ proj4.defs(
 register(proj4);
 
 const App = () => {
-  const fileOpened = useAppStore((state) => state.fileOpened);
-  const parcelsLoaded = useAppStore((state) => state.parcelsLoaded);
-  const parcelAreasLoaded = useAppStore((state) => state.parcelAreasLoaded);
-  const titleDeedsLoaded = useAppStore((state) => state.titleDeedsLoaded);
-  const codeListsLoaded = useAppStore((state) => state.codeListsLoaded);
-  const mapPointerMove = useAppStore((state) => state.mapPointerMove);
-  const parcelAreasProgress = useAppStore((state) => state.parcelAreasProgress);
   const extentFeatures = useAppStore(getMainExtentFeatures);
   const isFileOpened = useAppStore(getIsFileOpened);
   const mainExtents = useAppStore(getMainExtents);
@@ -274,7 +276,7 @@ const App = () => {
     return () => {
       map.removeInteraction(dnd);
     };
-  }, [fileOpened]);
+  }, []);
 
   useEffect(() => {
     assertIsDefined(mapRef.current);
@@ -410,15 +412,7 @@ const App = () => {
         parcelAreasLoaded({ parcelAreas: {} });
       }
     })();
-  }, [
-    isFileOpened,
-    mainExtents,
-    parcelsLoaded,
-    parcelAreasLoaded,
-    parcelAreasProgress,
-    titleDeedsLoaded,
-    codeListsLoaded,
-  ]);
+  }, [isFileOpened, mainExtents]);
 
   useEffect(() => {
     assertIsDefined(parcelLayerRef.current);
@@ -458,7 +452,7 @@ const App = () => {
         highlightedFeature: feature,
       });
     });
-  }, [mapPointerMove]);
+  }, []);
 
   useEffect(() => {
     assertIsDefined(parcelLayerRef.current);

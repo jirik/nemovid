@@ -1,21 +1,14 @@
+import type { Draft } from 'immer';
 import type { Feature } from 'ol';
 import { createSelector } from 'reselect';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { MIN_FEATURE_EXTENT_RADIUS } from '../constants.ts';
 import { assertIsDefined } from './assert.ts';
-import {
-  type CodeList,
-  type CodeListItem,
-  getParcelLabel,
-  getParcelZoning,
-  sortParcelByLabel,
-} from './cuzk.ts';
+import { type CodeList, type CodeListItem, sortParcelByLabel } from './cuzk.ts';
 import * as olUtil from './olutil.ts';
 import {
-  type ParcelAreas,
   ParcelCoveredAreaM2PropName,
-  ParcelCoveredAreaPercPropName,
   extentsToFeatures,
   filterParcels,
 } from './olutil.ts';
@@ -25,7 +18,7 @@ export type ParcelFilters = {
   maxCoveredAreaPerc: number;
 };
 
-interface State {
+export interface State {
   fileName: string | null;
   features: Feature[];
   parcels: Record<string, SimpleParcel> | null;
@@ -44,173 +37,36 @@ interface State {
   };
 }
 
-interface Actions {
-  fileOpened: ({
-    name,
-    features,
-  }: { name: string; features: Feature[] }) => void;
-  parcelsLoaded: ({ parcels }: { parcels: Feature[] }) => void;
-  parcelAreasLoaded: ({
-    parcelAreas,
-  }: { parcelAreas: Record<string, ParcelAreas> }) => void;
-  parcelFiltersChanged: (opts: Partial<ParcelFilters>) => void;
-  mapPointerMove: ({
-    highlightedParcel,
-    highlightedFeature,
-  }: {
-    highlightedParcel?: Feature | null;
-    highlightedFeature?: Feature | null;
-  }) => void;
-  parcelAreasProgress: (processedParcels: number) => void;
-  titleDeedsLoaded: ({
-    titleDeeds,
-    owners,
-  }: {
-    titleDeeds: Record<string, SimpleTitleDeed>;
-    owners: Record<string, SimpleOwner>;
-  }) => void;
-  codeListsLoaded: (codeLists: Partial<State['codeLists']>) => void;
-}
-
 export const defaultFilters: ParcelFilters = {
   maxCoveredAreaM2: 1_000_000_000,
   maxCoveredAreaPerc: 100,
 };
 
-export const useAppStore = create<State & Actions>()(
-  immer((set) => ({
-    fileName: null,
-    features: [],
-    parcels: null,
-    parcelFeatures: null,
-    zonings: null,
-    titleDeeds: null,
-    owners: null,
-    processedParcels: null,
-    highlightedParcel: null,
-    highlightedFeature: null,
-    parcelAreasTimestamp: null,
-    parcelInfosTimestamp: null,
-    parcelFilters: { ...defaultFilters },
-    codeLists: {
-      landUse: null,
-    },
-    fileOpened: ({ name, features }: { name: string; features: Feature[] }) =>
-      set((state) => {
-        state.fileName = name;
-        state.features = features;
-        state.parcels = null;
-        state.parcelFeatures = null;
-        state.zonings = null;
-        state.titleDeeds = null;
-        state.owners = null;
-        state.parcelFilters = { ...defaultFilters };
-        state.parcelAreasTimestamp = null;
-        state.parcelInfosTimestamp = null;
-        state.processedParcels = null;
-      }),
-    parcelsLoaded: ({ parcels }: { parcels: Feature[] }) =>
-      set((state) => {
-        const parcelsDict: Record<string, SimpleParcel> = {};
-        state.parcelFeatures = {};
-        state.zonings = {};
-        for (const parcelFeature of parcels) {
-          const parcelId = parcelFeature.getId() as number;
-          console.assert(typeof parcelId === 'number');
+const initialState: State = {
+  fileName: null,
+  features: [],
+  parcels: null,
+  parcelFeatures: null,
+  zonings: null,
+  titleDeeds: null,
+  owners: null,
+  processedParcels: null,
+  highlightedParcel: null,
+  highlightedFeature: null,
+  parcelAreasTimestamp: null,
+  parcelInfosTimestamp: null,
+  parcelFilters: { ...defaultFilters },
+  codeLists: {
+    landUse: null,
+  },
+};
 
-          if (!(parcelId in parcelsDict)) {
-            const simpleZoning = getParcelZoning(parcelFeature);
-            const zoningId = simpleZoning.id;
-            assertIsDefined(zoningId);
-            if (!(zoningId in state.zonings)) {
-              state.zonings[zoningId] = {
-                id: zoningId,
-                title: simpleZoning.title,
-                parcels: [],
-                titleDeeds: [],
-              };
-            }
-            const zoning = state.zonings[zoningId] as SimpleZoning;
-            const landUseCode = parcelFeature.get('landUse') as string | null;
-            const parcel: SimpleParcel = {
-              id: parcelId,
-              label: getParcelLabel(parcelFeature),
-              titleDeed: null,
-              zoning: zoningId,
-              landUse: landUseCode,
-            };
+type Setter = {
+  set: (setter: (state: Draft<State>) => void) => void;
+};
 
-            parcelsDict[parcelId] = parcel;
-            zoning.parcels.push(parcelId);
-            state.parcelFeatures[parcelId] = parcelFeature;
-          }
-        }
-        state.parcels = parcelsDict;
-      }),
-    parcelAreasLoaded: ({
-      parcelAreas,
-    }: { parcelAreas: Record<string, ParcelAreas> }) =>
-      set((state) => {
-        assertIsDefined(state.parcelFeatures);
-        for (const [parcelId, areas] of Object.entries(parcelAreas)) {
-          const parcel = state.parcelFeatures[parcelId];
-          parcel.set(ParcelCoveredAreaM2PropName, areas.coveredAreaM2);
-          parcel.set(ParcelCoveredAreaPercPropName, areas.coveredAreaPerc);
-        }
-        state.parcelAreasTimestamp = Date.now();
-        // @ts-ignore
-        const stats = getParcelStats(state);
-        assertIsDefined(stats.maxCoveredAreaM2);
-        state.parcelFilters.maxCoveredAreaM2 = stats.maxCoveredAreaM2;
-        state.parcelFilters.maxCoveredAreaPerc = 100;
-        state.processedParcels = null;
-      }),
-    mapPointerMove: ({
-      highlightedParcel,
-      highlightedFeature,
-    }: {
-      highlightedParcel?: Feature | null;
-      highlightedFeature?: Feature | null;
-    }) =>
-      set((state) => {
-        state.highlightedParcel = highlightedParcel
-          ? (highlightedParcel.getId() as number)
-          : null;
-        const featureFid = highlightedFeature?.getId();
-        state.highlightedFeature =
-          typeof featureFid === 'number' ? featureFid : null;
-      }),
-    parcelFiltersChanged: (filters: Partial<ParcelFilters>) =>
-      set((state) => {
-        state.parcelFilters = {
-          ...state.parcelFilters,
-          ...filters,
-        };
-      }),
-    parcelAreasProgress: (processedParcels: number) =>
-      set((state) => {
-        state.processedParcels = processedParcels;
-      }),
-    titleDeedsLoaded: ({
-      titleDeeds,
-      owners,
-    }: {
-      titleDeeds: Record<string, SimpleTitleDeed>;
-      owners: Record<string, SimpleOwner>;
-    }) =>
-      set((state) => {
-        state.titleDeeds = titleDeeds;
-        state.owners = owners;
-        state.parcelInfosTimestamp = Date.now();
-      }),
-    codeListsLoaded: (codeLists: Partial<State['codeLists']>) =>
-      set((state) => {
-        state.codeLists = {
-          ...state.codeLists,
-          ...codeLists,
-        };
-      }),
-  })),
+export const useAppStore = create<State & Setter>()(
+  immer((set) => ({ ...initialState, set: (state) => set(state) })),
 );
 
 const createAppSelector = createSelector.withTypes<State>();
