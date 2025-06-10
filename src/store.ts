@@ -5,13 +5,19 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { MIN_FEATURE_EXTENT_RADIUS } from '../constants.ts';
 import { assertIsDefined } from './assert.ts';
-import { type CodeList, type CodeListItem, sortParcelByLabel } from './cuzk.ts';
+import {
+  type CodeList,
+  type CodeListItem,
+  NullItem,
+  sortParcelByLabel,
+} from './cuzk.ts';
 import * as olUtil from './olutil.ts';
 import {
   ParcelCoveredAreaM2PropName,
   extentsToFeatures,
   filterParcels,
 } from './olutil.ts';
+import * as ts from './typescriptUtil.ts';
 
 export type ParcelFilters = {
   maxCoveredAreaM2: number;
@@ -116,7 +122,7 @@ export type Parcel = {
   label: string;
   zoning: Zoning;
   titleDeed: TitleDeed | null;
-  landUse: CodeListItem | null;
+  landUse: CodeListItem;
 };
 
 export type SimpleZoning = Omit<Zoning, 'parcels' | 'titleDeeds'> & {
@@ -135,7 +141,7 @@ export type SimpleTitleDeed = Omit<
 export type SimpleParcel = Omit<Parcel, 'zoning' | 'titleDeed' | 'landUse'> & {
   zoning: string;
   titleDeed: number | null;
-  landUse: string | null;
+  landUse: string;
 };
 
 export type SimpleOwner = Omit<Owner, 'titleDeeds'> & {
@@ -202,8 +208,8 @@ export const getZonings = createAppSelector(
             zoning,
             titleDeed: null,
             landUse:
-              codeLists.landUse == null || simpleParcel.landUse == null
-                ? null
+              codeLists.landUse == null
+                ? NullItem
                 : codeLists.landUse.values[simpleParcel.landUse],
           };
           return parcel;
@@ -333,6 +339,37 @@ export const getIsFileOpened = createAppSelector(
   [(state) => state.fileName],
   (fileName): boolean => {
     return fileName != null;
+  },
+);
+
+export const getCodeLists = createAppSelector(
+  [getParcels, (state) => state.codeLists],
+  (parcels, codeLists): State['codeLists'] => {
+    if (parcels == null) {
+      return structuredClone(initialState.codeLists);
+    }
+    return ts.fromEntries(
+      ts.entries(codeLists).map(([codeListKey, fullCodeList]) => {
+        let codeList: CodeList | null = null;
+        if (fullCodeList != null) {
+          codeList = {
+            id: fullCodeList.id,
+            label: fullCodeList.label,
+            values: {},
+          };
+          for (const code of Object.keys(fullCodeList.values)) {
+            if (
+              Object.values(parcels).some(
+                (parcel) => parcel[codeListKey]?.code === code,
+              )
+            ) {
+              codeList.values[code] = fullCodeList.values[code];
+            }
+          }
+        }
+        return [codeListKey, codeList] as ts.Entry<State['codeLists']>;
+      }),
+    );
   },
 );
 

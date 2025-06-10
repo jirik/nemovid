@@ -160,6 +160,12 @@ export type CodeList = {
   values: Record<string, CodeListItem>;
 };
 
+export const NullItem = Object.freeze({
+  id: 'null',
+  code: 'null',
+  label: 'null (neznámá hodnota)',
+});
+
 type CodeListResponse = {
   codelist: {
     id: string;
@@ -181,24 +187,30 @@ export const fetchCodeList = async (url: string) => {
   const resp = await fetch(url);
   const respJson: CodeListResponse = (await resp.json()) as CodeListResponse;
   const listId = respJson.codelist.id;
+  const values = respJson.codelist.containeditems.reduce(
+    (prev: CodeList['values'], item) => {
+      const code = getItemCodeFromId({
+        itemId: item.value.id,
+        codeListId: listId,
+      });
+      prev[code] = {
+        id: item.value.id,
+        code,
+        label: item.value.label.text,
+      };
+      return prev;
+    },
+    {},
+  );
+  console.assert(!(NullItem.code in values));
+  values[NullItem.code] = {
+    ...NullItem,
+    id: `${listId}${NullItem.code}`,
+  };
   const result: CodeList = {
     id: listId,
     label: respJson.codelist.label.text,
-    values: respJson.codelist.containeditems.reduce(
-      (prev: CodeList['values'], item) => {
-        const code = getItemCodeFromId({
-          itemId: item.value.id,
-          codeListId: listId,
-        });
-        prev[code] = {
-          id: item.value.id,
-          code,
-          label: item.value.label.text,
-        };
-        return prev;
-      },
-      {},
-    ),
+    values: values,
   };
   return result;
 };

@@ -33,6 +33,7 @@ import {
 import { assertFeature, assertFeatures, assertIsDefined } from './assert.ts';
 import {
   type CodeList,
+  NullItem,
   fetchCodeList,
   getItemCodeFromId,
   getParcelsByExtent,
@@ -357,7 +358,7 @@ const App = () => {
               const landUseObj = parcel.get('landUse') as
                 | { 'xlink:href': string }
                 | { nilReason: string };
-              let landUseCode: string | null = null;
+              let landUseCode: string = NullItem.code;
               if ('xlink:href' in landUseObj) {
                 const landUseId = landUseObj['xlink:href'].replace(
                   'services.cuzk.cz',

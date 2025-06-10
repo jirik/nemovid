@@ -60,7 +60,7 @@ export const parcelsLoaded = ({ parcels }: { parcels: Feature[] }) =>
           };
         }
         const zoning = state.zonings[zoningId] as SimpleZoning;
-        const landUseCode = parcelFeature.get('landUse') as string | null;
+        const landUseCode = parcelFeature.get('landUse') as string;
         const parcel: SimpleParcel = {
           id: parcelId,
           label: getParcelLabel(parcelFeature),
