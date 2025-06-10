@@ -23,6 +23,9 @@ import { MIN_MAIN_EXTENT_RADIUS_PX } from '../constants.ts';
 import InfoBar from './InfoBar.tsx';
 import { assertFeature, assertFeatures, assertIsDefined } from './assert.ts';
 import {
+  type CodeList,
+  fetchCodeList,
+  getItemCodeFromId,
   getParcelsByExtent,
   getTitleDeeds,
   parcelsGmlToFeatures,
@@ -58,6 +61,7 @@ const App = () => {
   const parcelsLoaded = useAppStore((state) => state.parcelsLoaded);
   const parcelAreasLoaded = useAppStore((state) => state.parcelAreasLoaded);
   const titleDeedsLoaded = useAppStore((state) => state.titleDeedsLoaded);
+  const codeListsLoaded = useAppStore((state) => state.codeListsLoaded);
   const mapPointerMove = useAppStore((state) => state.mapPointerMove);
   const parcelAreasProgress = useAppStore((state) => state.parcelAreasProgress);
   const extentFeatures = useAppStore(getMainExtentFeatures);
@@ -72,6 +76,7 @@ const App = () => {
   const vectorLayerRef = useRef<WebGLVectorLayer | null>(null);
   const vectorExtentLayerRef = useRef<VectorLayer | null>(null);
   const parcelLayerRef = useRef<WebGLVectorLayer | null>(null);
+  const landUseCodeListRef = useRef<CodeList | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -324,6 +329,13 @@ const App = () => {
       const vectorSource = vectorLayer.getSource();
       assertIsDefined(vectorSource);
       if (mainExtents.length > 0) {
+        if (landUseCodeListRef.current == null) {
+          landUseCodeListRef.current = await fetchCodeList(
+            'https://services.cuzk.gov.cz/registry/codelist/LandUseValue/LandUseValue.json',
+          );
+          codeListsLoaded({ landUse: landUseCodeListRef.current });
+        }
+        const landUseCodeList = landUseCodeListRef.current;
         const results = await Promise.all(
           mainExtents.map((e) => getParcelsByExtent({ extent: e })),
         );
@@ -340,6 +352,21 @@ const App = () => {
             parcel.setId(parcelId);
             if (!(parcelId in parcelsDict)) {
               parcelsDict[parcelId] = parcel;
+              const landUseObj = parcel.get('landUse') as
+                | { 'xlink:href': string }
+                | { nilReason: string };
+              let landUseCode: string | null = null;
+              if ('xlink:href' in landUseObj) {
+                const landUseId = landUseObj['xlink:href'].replace(
+                  'services.cuzk.cz',
+                  'services.cuzk.gov.cz',
+                );
+                landUseCode = getItemCodeFromId({
+                  itemId: landUseId,
+                  codeList: landUseCodeList,
+                });
+              }
+              parcel.set('landUse', landUseCode, true);
               parcel.unset('referencePoint', true);
             }
           }
@@ -390,6 +417,7 @@ const App = () => {
     parcelAreasLoaded,
     parcelAreasProgress,
     titleDeedsLoaded,
+    codeListsLoaded,
   ]);
 
   useEffect(() => {

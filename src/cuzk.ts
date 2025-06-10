@@ -17,8 +17,8 @@ import { fillTemplate } from './template.ts';
 
 export const getParcelsByExtent = async ({ extent }: { extent: Extent }) => {
   const res = await fetch(
-    // `http://services.cuzk.cz/wfs/inspire-CPX-wfs.asp?service=wfs&version=2.0.0&request=getFeature&BBOX=${extent.join(',')}&srsName=urn:ogc:def:crs:EPSG::5514&typeNames=CadastralParcel`,
-    `https://services.cuzk.cz/wfs/inspire-CP-wfs.asp?service=wfs&version=2.0.0&request=getFeature&BBOX=${extent.join(',')}&srsName=urn:ogc:def:crs:EPSG::5514&typeNames=CadastralParcel`,
+    `http://services.cuzk.cz/wfs/inspire-CPX-wfs.asp?service=wfs&version=2.0.0&request=getFeature&BBOX=${extent.join(',')}&srsName=urn:ogc:def:crs:EPSG::5514&typeNames=CadastralParcel`,
+    // `https://services.cuzk.cz/wfs/inspire-CP-wfs.asp?service=wfs&version=2.0.0&request=getFeature&BBOX=${extent.join(',')}&srsName=urn:ogc:def:crs:EPSG::5514&typeNames=CadastralParcel`,
   );
   const resTxt = await res.text();
   const domParser = new window.DOMParser();
@@ -147,4 +147,73 @@ export const sortParcelByLabel = (a: Parcel, b: Parcel) => {
     .split(/\D+/)
     .map((s) => Number.parseInt(s));
   return aParts[0] - bParts[0] || aParts[1] - bParts[1];
+};
+
+export type CodeListItem = {
+  id: string; // global
+  code: string; // local
+  label: string;
+};
+export type CodeList = {
+  id: string;
+  label: string;
+  values: Record<string, CodeListItem>;
+};
+
+type CodeListResponse = {
+  codelist: {
+    id: string;
+    label: {
+      text: string;
+    };
+    containeditems: {
+      value: {
+        id: string;
+        label: {
+          text: string;
+        };
+      };
+    }[];
+  };
+};
+
+export const fetchCodeList = async (url: string) => {
+  const resp = await fetch(url);
+  const respJson: CodeListResponse = (await resp.json()) as CodeListResponse;
+  const listId = respJson.codelist.id;
+  const result: CodeList = {
+    id: listId,
+    label: respJson.codelist.label.text,
+    values: respJson.codelist.containeditems.reduce(
+      (prev: CodeList['values'], item) => {
+        const code = getItemCodeFromId({
+          itemId: item.value.id,
+          codeListId: listId,
+        });
+        prev[code] = {
+          id: item.value.id,
+          code,
+          label: item.value.label.text,
+        };
+        return prev;
+      },
+      {},
+    ),
+  };
+  return result;
+};
+
+export const getItemCodeFromId = (
+  opts:
+    | { itemId: string; codeListId: string }
+    | { itemId: string; codeList: CodeList },
+) => {
+  const { itemId } = opts;
+  const codeListId = 'codeListId' in opts ? opts.codeListId : opts.codeList.id;
+  console.assert(itemId.startsWith(codeListId));
+  const code = itemId.substring(codeListId.length);
+  if ('codeList' in opts) {
+    console.assert(code in opts.codeList.values);
+  }
+  return code;
 };

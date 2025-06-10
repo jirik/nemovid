@@ -4,7 +4,13 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { MIN_FEATURE_EXTENT_RADIUS } from '../constants.ts';
 import { assertIsDefined } from './assert.ts';
-import { getParcelLabel, getParcelZoning, sortParcelByLabel } from './cuzk.ts';
+import {
+  type CodeList,
+  type CodeListItem,
+  getParcelLabel,
+  getParcelZoning,
+  sortParcelByLabel,
+} from './cuzk.ts';
 import * as olUtil from './olutil.ts';
 import {
   type ParcelAreas,
@@ -33,6 +39,9 @@ interface State {
   parcelInfosTimestamp: number | null;
   processedParcels: number | null;
   parcelFilters: ParcelFilters;
+  codeLists: {
+    landUse: CodeList | null;
+  };
 }
 
 interface Actions {
@@ -60,6 +69,7 @@ interface Actions {
     titleDeeds: Record<string, SimpleTitleDeed>;
     owners: Record<string, SimpleOwner>;
   }) => void;
+  codeListsLoaded: (codeLists: Partial<State['codeLists']>) => void;
 }
 
 export const defaultFilters: ParcelFilters = {
@@ -82,6 +92,9 @@ export const useAppStore = create<State & Actions>()(
     parcelAreasTimestamp: null,
     parcelInfosTimestamp: null,
     parcelFilters: { ...defaultFilters },
+    codeLists: {
+      landUse: null,
+    },
     fileOpened: ({ name, features }: { name: string; features: Feature[] }) =>
       set((state) => {
         state.fileName = name;
@@ -118,11 +131,13 @@ export const useAppStore = create<State & Actions>()(
               };
             }
             const zoning = state.zonings[zoningId] as SimpleZoning;
+            const landUseCode = parcelFeature.get('landUse') as string | null;
             const parcel: SimpleParcel = {
               id: parcelId,
               label: getParcelLabel(parcelFeature),
               titleDeed: null,
               zoning: zoningId,
+              landUse: landUseCode,
             };
 
             parcelsDict[parcelId] = parcel;
@@ -188,6 +203,13 @@ export const useAppStore = create<State & Actions>()(
         state.owners = owners;
         state.parcelInfosTimestamp = Date.now();
       }),
+    codeListsLoaded: (codeLists: Partial<State['codeLists']>) =>
+      set((state) => {
+        state.codeLists = {
+          ...state.codeLists,
+          ...codeLists,
+        };
+      }),
   })),
 );
 
@@ -238,6 +260,7 @@ export type Parcel = {
   label: string;
   zoning: Zoning;
   titleDeed: TitleDeed | null;
+  landUse: CodeListItem | null;
 };
 
 export type SimpleZoning = Omit<Zoning, 'parcels' | 'titleDeeds'> & {
@@ -253,9 +276,10 @@ export type SimpleTitleDeed = Omit<
   owners: number[];
 };
 
-export type SimpleParcel = Omit<Parcel, 'zoning' | 'titleDeed'> & {
+export type SimpleParcel = Omit<Parcel, 'zoning' | 'titleDeed' | 'landUse'> & {
   zoning: string;
   titleDeed: number | null;
+  landUse: string | null;
 };
 
 export type SimpleOwner = Omit<Owner, 'titleDeeds'> & {
@@ -283,8 +307,15 @@ export const getZonings = createAppSelector(
     getFilteredParcels,
     (state) => state.titleDeeds,
     (state) => state.owners,
+    (state) => state.codeLists,
   ],
-  (simpleZonings, filteredParcels, simpleTitleDeeds, simpleOwners) => {
+  (
+    simpleZonings,
+    filteredParcels,
+    simpleTitleDeeds,
+    simpleOwners,
+    codeLists,
+  ) => {
     const simpleParcels = filteredParcels;
     if (simpleZonings == null || simpleParcels == null) {
       return null;
@@ -314,6 +345,10 @@ export const getZonings = createAppSelector(
             ...simpleParcel,
             zoning,
             titleDeed: null,
+            landUse:
+              codeLists.landUse == null || simpleParcel.landUse == null
+                ? null
+                : codeLists.landUse.values[simpleParcel.landUse],
           };
           return parcel;
         });

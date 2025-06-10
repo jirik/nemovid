@@ -218,9 +218,13 @@ const InfoBar = () => {
       {!fileName ? (
         <div className={styles.section}>
           <h3>Vítejte</h3>
-          <div>
+          <p>
             Začněte tím, že soubor *.geojson přetáhnete nad mapu (drag & drop).
-          </div>
+          </p>
+          <p>
+            Aplikace podporuje soubory *.geojson s plošnými prvky (polygony,
+            multipolygony) v souřadnicovém systému S-JTSK (EPSG:5514).
+          </p>
         </div>
       ) : (
         <div className={styles.section}>
