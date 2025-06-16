@@ -8,6 +8,7 @@ import JstsOverlayOp from 'jsts/org/locationtech/jts/operation/overlay/OverlayOp
 import JstsRelatedOp from 'jsts/org/locationtech/jts/operation/relate/RelateOp.js';
 import JstsIsValidOp from 'jsts/org/locationtech/jts/operation/valid/IsValidOp.js';
 import { Feature } from 'ol';
+import type { ExpressionValue } from 'ol/expr/expression';
 import type { Extent } from 'ol/extent';
 import * as olExtent from 'ol/extent';
 import WMTSCapabilities from 'ol/format/WMTSCapabilities';
@@ -26,6 +27,7 @@ import TileLayer from 'ol/layer/Tile';
 import type VectorSource from 'ol/source/Vector';
 import WMTS, { optionsFromCapabilities } from 'ol/source/WMTS';
 import { assertIsDefined } from './assert.ts';
+import type { CodeList } from './cuzk.ts';
 import {
   type ParcelFilters,
   type SimpleParcel,
@@ -379,5 +381,33 @@ export const filterParcels = ({
     },
     {},
   );
+  return result;
+};
+
+export const getGlInFilter = ({
+  codeList,
+  propName,
+  varName,
+}: {
+  codeList: CodeList;
+  propName: string;
+  varName: string;
+}): ExpressionValue => {
+  const intCodes = Object.values(codeList.values).map((v) => v.intCode);
+  const minIntCode = Math.min(...intCodes);
+  const maxIntCode = Math.max(...intCodes);
+  console.assert(0 <= minIntCode && maxIntCode <= 52); // because 52 is the last bit in MAX_SAFE_INTEGER (2^52)
+  const result: ExpressionValue = ['match', ['get', propName]];
+  for (const item of Object.values(codeList.values)) {
+    result.push(
+      item.code,
+      [
+        '==',
+        ['%', ['floor', ['/', ['var', varName], 2 ** item.intCode]], 2],
+        1,
+      ],
+    );
+  }
+  result.push(false);
   return result;
 };

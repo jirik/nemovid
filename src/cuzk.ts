@@ -152,6 +152,7 @@ export const sortParcelByLabel = (a: Parcel, b: Parcel) => {
 export type CodeListItem = {
   id: string; // global
   code: string; // local
+  intCode: number;
   label: string;
 };
 export type CodeList = {
@@ -161,7 +162,6 @@ export type CodeList = {
 };
 
 export const NullItem = Object.freeze({
-  id: 'null',
   code: 'null',
   label: 'null (neznámá hodnota)',
 });
@@ -188,7 +188,7 @@ export const fetchCodeList = async (url: string) => {
   const respJson: CodeListResponse = (await resp.json()) as CodeListResponse;
   const listId = respJson.codelist.id;
   const values = respJson.codelist.containeditems.reduce(
-    (prev: CodeList['values'], item) => {
+    (prev: CodeList['values'], item, idx) => {
       const code = getItemCodeFromId({
         itemId: item.value.id,
         codeListId: listId,
@@ -196,6 +196,7 @@ export const fetchCodeList = async (url: string) => {
       prev[code] = {
         id: item.value.id,
         code,
+        intCode: idx + 1,
         label: item.value.label.text,
       };
       return prev;
@@ -206,6 +207,7 @@ export const fetchCodeList = async (url: string) => {
   values[NullItem.code] = {
     ...NullItem,
     id: `${listId}${NullItem.code}`,
+    intCode: Object.values(values).length + 1,
   };
   const result: CodeList = {
     id: listId,
@@ -228,4 +230,11 @@ export const getItemCodeFromId = (
     console.assert(code in opts.codeList.values);
   }
   return code;
+};
+
+export const getIntCodeFromCode = ({
+  code,
+  codeList,
+}: { code: string; codeList: CodeList }): number => {
+  return codeList.values[code].intCode;
 };

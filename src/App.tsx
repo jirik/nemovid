@@ -51,7 +51,7 @@ import {
   defaultFilters,
   getIsFileOpened,
   getMainExtentFeatures,
-  getMainExtents,
+  getMainExtents, getParcelGlStyle, getParcelGlVars,
   useAppStore,
 } from './store.ts';
 import type { IncomingMessage, OutgoingMessage } from './worker.ts';
@@ -75,6 +75,8 @@ const App = () => {
   const highlightedFeatureId = useAppStore((state) => state.highlightedFeature);
   const parcels = useAppStore((state) => state.parcelFeatures);
   const parcelFilters = useAppStore((state) => state.parcelFilters);
+  const parcelStyle = useAppStore(getParcelGlStyle);
+  const parcelGlVars = useAppStore(getParcelGlVars);
   const mapRef = useRef<OlMap | null>(null);
   const vectorLayerRef = useRef<WebGLVectorLayer | null>(null);
   const vectorExtentLayerRef = useRef<VectorLayer | null>(null);
@@ -188,6 +190,11 @@ const App = () => {
           maxCoveredAreaPerc: defaultFilters.maxCoveredAreaPerc,
         },
       });
+      // parcelLayer.setStyle([{style: {
+      //         'stroke-color': '#ffff00',
+      //         'stroke-width': 1,
+      //         'fill-color': 'rgba(255,255,000,0.4)',
+      //       }}])
       parcelLayerRef.current = parcelLayer;
 
       const vectorExtentLayer = new VectorLayer({
@@ -336,6 +343,9 @@ const App = () => {
           landUseCodeListRef.current = await fetchCodeList(
             'https://services.cuzk.gov.cz/registry/codelist/LandUseValue/LandUseValue.json',
           );
+          // landUseCodeListRef.current = await fetchCodeList(
+          //   'https://services.cuzk.gov.cz/registry/codelist/LandUseValue/LandUseValue.json',
+          // );
           codeListsLoaded({ landUse: landUseCodeListRef.current });
         }
         const landUseCodeList = landUseCodeListRef.current;
@@ -455,6 +465,7 @@ const App = () => {
     });
   }, []);
 
+
   useEffect(() => {
     assertIsDefined(parcelLayerRef.current);
     const parcelLayer = parcelLayerRef.current;
@@ -462,8 +473,17 @@ const App = () => {
       highlightedId: highlightedParcelId || '',
       maxCoveredAreaM2: parcelFilters.maxCoveredAreaM2,
       maxCoveredAreaPerc: parcelFilters.maxCoveredAreaPerc,
+      ...parcelGlVars,
     });
-  }, [highlightedParcelId, parcelFilters]);
+    console.log('parcelGlVars', parcelGlVars)
+  }, [highlightedParcelId, parcelFilters, parcelGlVars]);
+
+  useEffect(() => {
+    assertIsDefined(parcelLayerRef.current);
+    const parcelLayer = parcelLayerRef.current;
+    parcelLayer.setStyle(parcelStyle)
+    console.log('new parcel style', parcelStyle)
+  }, [parcelStyle]);
 
   useEffect(() => {
     assertIsDefined(vectorLayerRef.current);

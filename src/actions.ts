@@ -17,6 +17,7 @@ import {
   useAppStore,
 } from './store.ts';
 import type { State } from './store.ts';
+import * as ts from './typescriptUtil.ts';
 
 const set = useAppStore.getState().set;
 
@@ -32,7 +33,7 @@ export const fileOpened = ({
     state.zonings = null;
     state.titleDeeds = null;
     state.owners = null;
-    state.parcelFilters = { ...defaultFilters };
+    state.parcelFilters = structuredClone(defaultFilters);
     state.parcelAreasTimestamp = null;
     state.parcelInfosTimestamp = null;
     state.processedParcels = null;
@@ -120,6 +121,17 @@ export const parcelFiltersChanged = (filters: Partial<ParcelFilters>) =>
     };
   });
 
+export const parcelCodeListFiltersChanged = ({
+  landUse,
+}: { landUse: { [code: string]: boolean } }) => {
+  set((state) => {
+    state.parcelFilters.codeLists.landUse = {
+      ...state.parcelFilters.codeLists.landUse,
+      ...landUse,
+    };
+  });
+};
+
 export const parcelAreasProgress = (processedParcels: number) =>
   set((state) => {
     state.processedParcels = processedParcels;
@@ -143,5 +155,25 @@ export const codeListsLoaded = (codeLists: Partial<State['codeLists']>) =>
     state.codeLists = {
       ...state.codeLists,
       ...codeLists,
+    };
+    const filledFilters = ts.fromEntries(
+      ts.entries(codeLists).map((entry) => {
+        assertIsDefined(entry)
+        const [codeListKey, codeList] = entry
+        assertIsDefined(codeList)
+        const items = codeList.values;
+        assertIsDefined(items);
+        const filter = Object.values(codeList.values).reduce(
+          (prev: { [code: string]: boolean }, item) => {
+            prev[item.code] = true
+            return prev;
+          },
+          {},
+        );
+        return [codeListKey, filter] as ts.Entry<ParcelFilters['codeLists']>;
+      }),
+    );
+    state.parcelFilters.codeLists = {
+      ...filledFilters,
     };
   });

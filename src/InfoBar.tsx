@@ -1,5 +1,6 @@
 import { saveAs } from 'file-saver';
-import { type ReactNode, useCallback } from 'react';
+import { Fragment, type ReactNode, useCallback } from 'react';
+import { CodeListFilter } from './CodeListFilter.tsx';
 import styles from './InfoBar.module.css';
 import { SliderInput } from './SliderInput.tsx';
 import { parcelFiltersChanged } from './actions.ts';
@@ -8,6 +9,7 @@ import settings from './settings.ts';
 import {
   type Zoning,
   getAreaFiltersState,
+  getCodeLists,
   getOwners,
   getParcelStats,
   getParcels,
@@ -152,6 +154,7 @@ const FilterSection = () => {
   const parcelFilters = useAppStore((state) => state.parcelFilters);
   const processedParcels = useAppStore((state) => state.processedParcels);
   const parcels = useAppStore((state) => state.parcels);
+  const codeLists = useAppStore(getCodeLists);
 
   const maxCoveredAreaM2Cb = useCallback((value: number | string) => {
     parcelFiltersChanged({
@@ -165,19 +168,20 @@ const FilterSection = () => {
         typeof value === 'string' ? Number.parseInt(value) : value,
     });
   }, []);
-  let content: React.ReactElement | null;
+  const content: React.ReactElement[] = [];
+  let areaContent: React.ReactElement | null;
   if (areaFiltersState == null) {
     assertIsDefined(parcels);
-    content = (
-      <div>
+    areaContent = (
+      <div key="area">
         Počítám velikosti překryvů ... {processedParcels || 0}/
         {Object.values(parcels).length} parcel zpracováno
       </div>
     );
   } else {
     assertIsDefined(parcelStats.maxCoveredAreaM2);
-    content = (
-      <>
+    areaContent = (
+      <Fragment key="area">
         <SliderInput
           value={parcelFilters.maxCoveredAreaM2}
           maxValue={parcelStats.maxCoveredAreaM2}
@@ -190,7 +194,19 @@ const FilterSection = () => {
           label="Maximální překrytí parcely v % rozlohy parcely"
           onChange={maxCoveredAreaPercCb}
         />
-      </>
+      </Fragment>
+    );
+  }
+  content.push(areaContent);
+  if (codeLists.landUse != null) {
+    const codeList = codeLists.landUse;
+    const codeListFilter = parcelFilters.codeLists.landUse;
+    content.push(
+      <CodeListFilter
+        key={codeList.id}
+        list={codeList}
+        filter={codeListFilter}
+      />,
     );
   }
   return (

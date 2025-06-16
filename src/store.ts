@@ -1,5 +1,7 @@
 import type { Draft } from 'immer';
 import type { Feature } from 'ol';
+import type { ExpressionValue } from 'ol/expr/expression';
+import type { Rule } from 'ol/style/flat';
 import { createSelector } from 'reselect';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
@@ -14,14 +16,18 @@ import {
 import * as olUtil from './olutil.ts';
 import {
   ParcelCoveredAreaM2PropName,
+  ParcelCoveredAreaPercPropName,
   extentsToFeatures,
-  filterParcels,
+  filterParcels, getGlInFilter,
 } from './olutil.ts';
 import * as ts from './typescriptUtil.ts';
 
 export type ParcelFilters = {
   maxCoveredAreaM2: number;
   maxCoveredAreaPerc: number;
+  codeLists: {
+    landUse: { [code: string]: boolean } | null;
+  };
 };
 
 export interface State {
@@ -46,7 +52,12 @@ export interface State {
 export const defaultFilters: ParcelFilters = {
   maxCoveredAreaM2: 1_000_000_000,
   maxCoveredAreaPerc: 100,
+  codeLists: {
+    landUse: null,
+  },
 };
+
+export const OffCodeListFilterValue = 'off';
 
 const initialState: State = {
   fileName: null,
@@ -61,7 +72,7 @@ const initialState: State = {
   highlightedFeature: null,
   parcelAreasTimestamp: null,
   parcelInfosTimestamp: null,
-  parcelFilters: { ...defaultFilters },
+  parcelFilters: structuredClone(defaultFilters),
   codeLists: {
     landUse: null,
   },
@@ -209,7 +220,7 @@ export const getZonings = createAppSelector(
             titleDeed: null,
             landUse:
               codeLists.landUse == null
-                ? NullItem
+                ? { ...NullItem, id: 'null', intCode: 1 }
                 : codeLists.landUse.values[simpleParcel.landUse],
           };
           return parcel;
@@ -376,3 +387,78 @@ export const getCodeLists = createAppSelector(
 export type ParcelStats = {
   maxCoveredAreaM2: number | null;
 };
+
+export const getParcelGlStyle = createAppSelector(
+  [(state) => state.codeLists],
+  (codeLists): Array<Rule> => {
+    const defaultStyle: Array<Rule> = [
+      {
+        filter: [
+          'all',
+          ['==', ['var', 'highlightedId'], ['id']],
+          [
+            '<=',
+            ['get', ParcelCoveredAreaM2PropName],
+            ['var', 'maxCoveredAreaM2'],
+          ],
+          [
+            '<=',
+            ['get', ParcelCoveredAreaPercPropName],
+            ['var', 'maxCoveredAreaPerc'],
+          ],
+        ],
+        style: {
+          'stroke-color': '#ffff00',
+          'stroke-width': 4,
+          'fill-color': 'rgba(255,255,000,0.4)',
+        },
+      },
+      {
+        else: true,
+        filter: [
+          'all',
+          [
+            '<=',
+            ['get', ParcelCoveredAreaM2PropName],
+            ['var', 'maxCoveredAreaM2'],
+          ],
+          [
+            '<=',
+            ['get', ParcelCoveredAreaPercPropName],
+            ['var', 'maxCoveredAreaPerc'],
+          ],
+        ],
+        style: {
+          'stroke-color': '#ffff00',
+          'stroke-width': 1,
+          'fill-color': 'rgba(255,255,000,0.4)',
+        },
+      },
+    ];
+    if(codeLists.landUse != null) {
+      for(const rule of defaultStyle) {
+        const newFilter = getGlInFilter({codeList: codeLists.landUse, propName: 'landUse', varName: 'landUse'})
+        console.log('newFilter', newFilter);
+        (rule.filter as Array<ExpressionValue>).push(newFilter);
+      }
+    }
+    return defaultStyle;
+  },
+);
+
+export const getParcelGlVars = createAppSelector(
+  [(state) => state.parcelFilters.codeLists, state => state.codeLists],
+  (filters, codeLists) => {
+    console.log('filters', filters, 'codeLists', codeLists)
+    const landUseValues = codeLists.landUse?.values || {}
+    return {
+      landUse: Object.values(landUseValues).length > 0 ? Object.entries(filters.landUse || {}).reduce((prev: number, [code, isActive]) => {
+        if(isActive) {
+          prev += 2 ** landUseValues[code].intCode
+        }
+        return prev;
+      }, 0) : 0
+    }
+  },
+);
+
