@@ -11,7 +11,6 @@ import { GeoJSON } from 'ol/format';
 import type { GeoJSONFeatureCollection } from 'ol/format/GeoJSON';
 import type { Geometry } from 'ol/geom';
 import { fromExtent } from 'ol/geom/Polygon';
-import { DragAndDrop } from 'ol/interaction';
 import VectorLayer from 'ol/layer/Vector';
 import WebGLVectorLayer from 'ol/layer/WebGLVector';
 import { register } from 'ol/proj/proj4';
@@ -21,6 +20,7 @@ import proj4 from 'proj4';
 import { useEffect, useRef } from 'react';
 import { MIN_MAIN_EXTENT_RADIUS_PX } from '../constants.ts';
 import InfoBar from './InfoBar.tsx';
+import DragAndDrop from './MapDragAndDrop.ts';
 import {
   codeListsLoaded,
   fileOpened,
@@ -30,7 +30,7 @@ import {
   parcelsLoaded,
   titleDeedsLoaded,
 } from './actions.ts';
-import { assertFeature, assertFeatures, assertIsDefined } from './assert.ts';
+import { assertFeature, assertIsDefined } from './assert.ts';
 import {
   type CodeList,
   NullItem,
@@ -262,16 +262,35 @@ const App = () => {
     assertIsDefined(vectorLayerRef.current);
     assertIsDefined(vectorExtentLayerRef.current);
     const map = mapRef.current;
-    const dnd = new DragAndDrop({
-      formatConstructors: [GeoJSON],
-    });
-    dnd.on('addfeatures', (event) => {
-      const newFeatures = event.features || [];
-      assertFeatures(newFeatures);
-      for (const [idx, feature] of newFeatures.entries()) {
-        feature.setId(idx + 1);
+    const dnd = new DragAndDrop();
+    dnd.on('addfile', async (event) => {
+      const file = event.file;
+      const filename = file.name.toLowerCase();
+      if (filename.endsWith('.geojson')) {
+        const geojsonString = await file.text();
+        const geojsonFormat = new GeoJSON({
+          dataProjection: 'EPSG:5514',
+        });
+        const newFeatures = geojsonFormat.readFeatures(geojsonString);
+        for (const [idx, feature] of newFeatures.entries()) {
+          feature.setId(idx + 1);
+        }
+        fileOpened({ name: event.file.name, features: newFeatures });
+      } else if (filename.endsWith('.dxf')) {
+        const formData = new FormData();
+        formData.append('file', file, file.name);
+        const resp = await fetch('/api/files', {
+          method: 'POST',
+          body: formData,
+        });
+        console.log(resp.status);
+        if (resp.status === 200) {
+          const respJson = await resp.json();
+          console.log(respJson);
+        } else {
+          console.log('error', await resp.text());
+        }
       }
-      fileOpened({ name: event.file.name, features: newFeatures });
     });
     map.addInteraction(dnd);
     return () => {
