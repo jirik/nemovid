@@ -13,7 +13,7 @@ npm install
 Start the dev server:
 
 ```bash
-npm dev
+make dev
 ```
 
 Build the app for production:

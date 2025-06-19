@@ -16,3 +16,17 @@ services:
         - ./server/files:/app
       ports:
         - "8000:8000"
+
+   ogr2ogr:
+      container_name: ogr2ogr
+      build:
+        context: server/ogr2ogr
+        dockerfile: Dockerfile
+      image: ogr2ogr:latest
+      user: ${UID_GID}
+      command: bash -c "source .venv/bin/activate && fastapi dev src/main.py --host 0.0.0.0"
+      volumes:
+        - ./data:/data
+        - ./server/ogr2ogr/src:/app/src
+      ports:
+        - "8001:8000"
