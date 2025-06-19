@@ -279,7 +279,7 @@ const App = () => {
       } else if (filename.endsWith('.dxf')) {
         const formData = new FormData();
         formData.append('file', file, file.name);
-        const resp = await fetch('/api/files', {
+        const resp = await fetch('/api/v1/files', {
           method: 'POST',
           body: formData,
         });

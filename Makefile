@@ -32,10 +32,10 @@ files-up:
 	docker compose up -d files
 
 files-format:
-	docker compose run --rm files bash -c "cd /app && ruff format && ruff check --fix"
+	docker compose run --rm files bash -c "ruff format && ruff check --fix"
 
 files-check:
-	docker compose run --rm files bash -c "cd /app && ruff format --check && ruff check && pyright"
+	docker compose run --rm files bash -c "ruff format --check && ruff check && pyright"
 
 format:
 	$(MAKE) files-format

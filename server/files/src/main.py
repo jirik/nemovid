@@ -7,12 +7,14 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from settings import settings
+
 app = FastAPI()
 
 
-@app.get("/api/hello")
-def read_root():
-    return {"Hello": "World"}
+@app.get("/api/v1/hello")
+def get_hello():
+    return {"Hello": "files", **settings.model_dump()}
 
 
 # Configuration
@@ -38,7 +40,7 @@ class UploadResponse(BaseModel):
 
 
 @app.post(
-    "/api/files",
+    "/api/v1/files",
     summary="Upload a File",
     responses={
         200: {"model": UploadResponse, "description": "File uploaded successfully!"},

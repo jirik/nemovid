@@ -8,12 +8,15 @@ services:
         dockerfile: Dockerfile
       image: files:latest
       user: ${UID_GID}
-      command: bash -c "cd /app && fastapi dev src/main.py --host 0.0.0.0"
+      command: bash -c "fastapi dev src/main.py --host 0.0.0.0"
       environment:
         - PYRIGHT_PYTHON_CACHE_DIR=/tmp
+      env_file:
+        - .env
       volumes:
         - ./data:/data
-        - ./server/files:/app
+        - ./server/files/src:/app/src
+        - ./server/files/ruff.toml:/app/ruff.toml
       ports:
         - "8000:8000"
 
@@ -25,8 +28,11 @@ services:
       image: ogr2ogr:latest
       user: ${UID_GID}
       command: bash -c "source .venv/bin/activate && fastapi dev src/main.py --host 0.0.0.0"
+      env_file:
+        - .env
       volumes:
         - ./data:/data
         - ./server/ogr2ogr/src:/app/src
+        - ./server/ogr2ogr/ruff.toml:/app/ruff.toml
       ports:
         - "8001:8000"
