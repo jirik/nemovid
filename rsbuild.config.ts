@@ -23,7 +23,9 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': 'http://localhost:8000',
+      '/api/files': 'http://localhost:8000',
+      '/api/ogr2ogr': 'http://localhost:8001',
+      '/static/files': 'http://localhost:8000',
     },
   },
 });

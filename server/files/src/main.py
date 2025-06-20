@@ -2,17 +2,18 @@ import logging
 import shutil
 import uuid
 from pathlib import Path
+from urllib.parse import urljoin
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from settings import settings
+from common.settings import settings
 
 app = FastAPI()
 
 
-@app.get("/api/v1/hello")
+@app.get("/api/files/v1/hello")
 def get_hello():
     return {"Hello": "files", **settings.model_dump()}
 
@@ -40,7 +41,7 @@ class UploadResponse(BaseModel):
 
 
 @app.post(
-    "/api/v1/files",
+    "/api/files/v1/files",
     summary="Upload a File",
     responses={
         200: {"model": UploadResponse, "description": "File uploaded successfully!"},
@@ -92,9 +93,9 @@ async def post_file(file: UploadFile = File(...)):
                 buffer.write(chunk)
 
         # Construct the public URL
-        base_url = "http://yourdomain.com"
-        public_url = (
-            f"{base_url}/static/files/{unique_directory_name}/{sanitized_filename}"
+        public_url = urljoin(
+            str(settings.public_url),
+            f"/static/files/{unique_directory_name}/{sanitized_filename}",
         )
 
         # Return response with public URL

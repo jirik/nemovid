@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/statkar.iml" filepath="$PROJECT_DIR$/.idea/statkar.iml" />
+      <module fileurl="file://$PROJECT_DIR$/server/files/.idea/files.iml" filepath="$PROJECT_DIR$/server/files/.idea/files.iml" />
+      <module fileurl="file://$PROJECT_DIR$/server/ogr2ogr/.idea/ogr2ogr.iml" filepath="$PROJECT_DIR$/server/ogr2ogr/.idea/ogr2ogr.iml" />
+    </modules>
+  </component>
+</project>

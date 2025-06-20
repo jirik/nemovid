@@ -10,7 +10,10 @@ dist/
 # IDE
 .vscode/*
 !.vscode/extensions.json
-.idea
+
+# Python
+__pycache__
+
 
 /data
 
