@@ -16,7 +16,7 @@ services:
       volumes:
         - ./data:/data
         - ./server/files/src:/app/src
-        - ./server/files/ruff.toml:/app/ruff.toml
+        - ./server/common/ruff.toml:/app/ruff.toml
         - ./server/common/src/common:/app/common
       ports:
         - "8000:8000"
@@ -34,7 +34,29 @@ services:
       volumes:
         - ./data:/data
         - ./server/ogr2ogr/src:/app/src
-        - ./server/ogr2ogr/ruff.toml:/app/ruff.toml
+        - ./server/common/ruff.toml:/app/ruff.toml
         - ./server/common/src/common:/app/common
       ports:
         - "8001:8000"
+
+   qgis:
+      container_name: qgis
+      build:
+        context: server/qgis
+        dockerfile: Dockerfile
+      image: qgis:latest
+      user: ${UID_GID}
+      command: bash -c "source .venv/bin/activate && fastapi dev src/main.py --host 0.0.0.0"
+      environment:
+        - PYRIGHT_PYTHON_CACHE_DIR=/tmp/pyright
+        - QT_QPA_PLATFORM=offscreen
+        - XDG_RUNTIME_DIR=/tmp/runtime-ubuntu
+      env_file:
+        - .env
+      volumes:
+        - ./data:/data
+        - ./server/qgis/src:/app/src
+        - ./server/common/ruff.toml:/app/ruff.toml
+        - ./server/common/src/common:/app/common
+      ports:
+        - "8002:8000"

@@ -2,12 +2,12 @@ import logging
 import shutil
 import uuid
 from pathlib import Path
-from urllib.parse import urljoin
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from common.files import file_path_to_static_url
 from common.settings import settings
 
 app = FastAPI()
@@ -20,7 +20,7 @@ def get_hello():
 
 # Configuration
 MAX_FILE_SIZE_MB: int = 100
-UPLOAD_DIRECTORY: str = "/data/files"
+UPLOAD_DIRECTORY: str = settings.files_dir_path
 Path(UPLOAD_DIRECTORY).mkdir(parents=True, exist_ok=True)
 
 SUPPORTED_FILE_TYPES: set[tuple[str, str]] = {
@@ -30,7 +30,11 @@ SUPPORTED_FILE_TYPES: set[tuple[str, str]] = {
 }
 
 # Mount the static directory
-app.mount("/static/files", StaticFiles(directory=UPLOAD_DIRECTORY), name="files")
+app.mount(
+    settings.static_files_url_path,
+    StaticFiles(directory=UPLOAD_DIRECTORY),
+    name="files",
+)
 
 
 # Define response model
@@ -93,10 +97,7 @@ async def post_file(file: UploadFile = File(...)):
                 buffer.write(chunk)
 
         # Construct the public URL
-        public_url = urljoin(
-            str(settings.public_url),
-            f"/static/files/{unique_directory_name}/{sanitized_filename}",
-        )
+        public_url = file_path_to_static_url(str(file_path))
 
         # Return response with public URL
         return {

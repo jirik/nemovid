@@ -25,6 +25,7 @@ export default defineConfig({
     proxy: {
       '/api/files': 'http://localhost:8000',
       '/api/ogr2ogr': 'http://localhost:8001',
+      '/api/qgis': 'http://localhost:8002',
       '/static/files': 'http://localhost:8000',
     },
   },

@@ -12,29 +12,29 @@ from common.settings import settings
 app = FastAPI()
 
 
-@app.get("/api/ogr2ogr/v1/hello")
+@app.get("/api/qgis/v1/hello")
 def get_hello():
-    return {"Hello": "ogr2ogr", **settings.model_dump()}
+    return {"Hello": "qgis", **settings.model_dump()}
 
 
-class DxfToGeojsonRequest(BaseModel):
+class FixGeometriesOptions(BaseModel):
     file_url: HttpUrl
 
 
-class DxfToGeojsonResponse(BaseModel):
+class FixGeometriesResponse(BaseModel):
     file_url: HttpUrl
 
 
 @app.post(
-    "/api/ogr2ogr/v1/dxf-to-geojson",
+    "/api/qgis/v1/fix-geometries",
     summary="DXF to GeoJSON",
 )
-async def post_dxf_to_geojson(options: DxfToGeojsonRequest):
+async def fix_geometries(options: FixGeometriesOptions):
     file_path: str = static_url_to_file_path(options.file_url)
     out_path = get_output_path(file_path)
 
     run_cmd(
-        f"""ogr2ogr "{out_path}" "{file_path}" -f GeoJSON --config DXF_FEATURE_LIMIT_PER_BLOCK -1 -a_srs EPSG:5514 --config DXF_ENCODING utf-8 -dim XY -dialect SQLITE -sql "SELECT * FROM entities WHERE LOWER(GeometryType(geometry)) LIKE '%polygon%' AND Layer LIKE '0-%'" """
+        f"""qgis_process run native:fixgeometries --distance_units=meters --area_units=m2 --ellipsoid=EPSG:7004 --INPUT="{file_path}" --METHOD=0 --OUTPUT="{out_path}" """
     )
 
     out_url = file_path_to_static_url(out_path)

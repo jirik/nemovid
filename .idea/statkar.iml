@@ -13,5 +13,6 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="files" />
     <orderEntry type="module" module-name="ogr2ogr" />
+    <orderEntry type="module" module-name="qgis" />
   </component>
 </module>
