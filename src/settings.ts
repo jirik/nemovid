@@ -14,4 +14,5 @@ export type Settings = {
   parcelInfoUrlTemplate: string | null;
   titleDeedInfoUrlTemplate: string | null;
   ownerInfoUrlTemplate: string | null;
+  publicUrl: string;
 };

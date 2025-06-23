@@ -278,14 +278,14 @@ const App = () => {
       } else if (filename.endsWith('.dxf')) {
         fileOpened({ name: event.file.name, features: null });
         const filesClient = createFilesClient({
-          baseUrl: 'http://localhost:3000',
+          baseUrl: settings.publicUrl,
         });
         const dxfResp = await postFile({ body: { file }, client: filesClient });
         assertIsDefined(dxfResp.data);
         const dxfUrl = dxfResp.data.url;
 
         const ogr2ogrClient = createOgr2ogrClient({
-          baseUrl: 'http://localhost:3000',
+          baseUrl: settings.publicUrl,
         });
         const unsafeGeojsonResp = await dxfToGeojson({
           body: { file_url: dxfUrl },
@@ -295,7 +295,7 @@ const App = () => {
         const unsafeGeojsonUrl = unsafeGeojsonResp.data.file_url;
 
         const qgisClient = createQgisClient({
-          baseUrl: 'http://localhost:3000',
+          baseUrl: settings.publicUrl,
         });
         const geojsonUrlResp = await fixGeometries({
           body: { file_url: unsafeGeojsonUrl },
