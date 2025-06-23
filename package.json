@@ -7,6 +7,7 @@
     "build": "rsbuild build",
     "check": "biome check --write && npx tsc --noEmit",
     "dev": "rsbuild dev --open",
+    "dev-headless": "rsbuild dev",
     "format": "biome format --write",
     "preview": "rsbuild preview"
   },

@@ -55,6 +55,9 @@ qgis-format:
 qgis-check:
 	docker compose run --rm qgis bash -c "source .venv/bin/activate && ruff format --check ./src && ruff check ./src && pyright ./src"
 
+server-up:
+	docker compose up -d files ogr2ogr qgis
+
 format:
 	$(MAKE) files-format
 	$(MAKE) ogr2ogr-format
@@ -68,8 +71,12 @@ check:
 	npm run check
 
 dev:
-	docker compose up -d files ogr2ogr qgis
+	$(MAKE) server-up
 	npm run dev
+
+dev-headless:
+	$(MAKE) server-up
+	npm run dev-headless
 
 stop:
 	docker compose stop
