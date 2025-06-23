@@ -38,17 +38,17 @@ app.mount(
 
 
 # Define response model
-class UploadResponse(BaseModel):
+class PostFileResponse(BaseModel):
     filename: str
-    message: str
-    url: str  # Include the public URL in the response
+    url: str
 
 
 @app.post(
     "/api/files/v1/files",
     summary="Upload a File",
+    operation_id="post_file",
     responses={
-        200: {"model": UploadResponse, "description": "File uploaded successfully!"},
+        200: {"model": PostFileResponse, "description": "File uploaded successfully!"},
         400: {"description": "Unsupported file"},
         413: {"description": "File size exceeds limit"},
         500: {"description": "An error occurred while uploading the file"},
@@ -100,11 +100,7 @@ async def post_file(file: UploadFile = File(...)):
         public_url = file_path_to_static_url(str(file_path))
 
         # Return response with public URL
-        return {
-            "filename": sanitized_filename,
-            "message": "File uploaded successfully!",
-            "url": public_url,
-        }
+        return PostFileResponse(filename=sanitized_filename, url=public_url)
 
     except Exception as e:
         logging.error("Error occurred while uploading file", exc_info=True)

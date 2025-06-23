@@ -26,7 +26,7 @@ export type ParcelFilters = {
 
 export interface State {
   fileName: string | null;
-  features: Feature[];
+  features: Feature[] | null;
   parcels: Record<string, SimpleParcel> | null;
   parcelFeatures: Record<string, Feature> | null;
   zonings: Record<string, SimpleZoning> | null;
@@ -50,7 +50,7 @@ export const defaultFilters: ParcelFilters = {
 
 const initialState: State = {
   fileName: null,
-  features: [],
+  features: null,
   parcels: null,
   parcelFeatures: null,
   zonings: null,
@@ -80,6 +80,9 @@ const createAppSelector = createSelector.withTypes<State>();
 export const getMainExtents = createAppSelector(
   [(state) => state.features],
   (features) => {
+    if (!features) {
+      return null;
+    }
     const mainExtents = olUtil.getMainExtents({
       features,
       minExtentRadius: MIN_FEATURE_EXTENT_RADIUS, // meters
@@ -91,6 +94,9 @@ export const getMainExtents = createAppSelector(
 export const getMainExtentFeatures = createAppSelector(
   [getMainExtents],
   (mainExtents) => {
+    if (!mainExtents) {
+      return null;
+    }
     const extentFeatures = extentsToFeatures({ extents: mainExtents });
     return extentFeatures;
   },
@@ -339,6 +345,13 @@ export const getIsFileOpened = createAppSelector(
   [(state) => state.fileName],
   (fileName): boolean => {
     return fileName != null;
+  },
+);
+
+export const getAreFeaturesLoaded = createAppSelector(
+  [(state) => state.features],
+  (features): boolean => {
+    return features != null;
   },
 );
 

@@ -46,10 +46,16 @@ import {
   assertMinExtentRadius,
   loadTileLayerFromWmtsCapabilities,
 } from './olutil.ts';
+import { postFile } from './server/files';
+import { createClient as createFilesClient } from './server/files/client';
+import { dxfToGeojson } from './server/ogr2ogr';
+import { createClient as createOgr2ogrClient } from './server/ogr2ogr/client';
+import { fixGeometries } from './server/qgis';
+import { createClient as createQgisClient } from './server/qgis/client';
 import settings from './settings.ts';
 import {
   defaultFilters,
-  getIsFileOpened,
+  getAreFeaturesLoaded,
   getMainExtentFeatures,
   getMainExtents,
   useAppStore,
@@ -68,7 +74,7 @@ register(proj4);
 
 const App = () => {
   const extentFeatures = useAppStore(getMainExtentFeatures);
-  const isFileOpened = useAppStore(getIsFileOpened);
+  const areFeaturesLoaded = useAppStore(getAreFeaturesLoaded);
   const mainExtents = useAppStore(getMainExtents);
   const features = useAppStore((state) => state.features);
   const highlightedParcelId = useAppStore((state) => state.highlightedParcel);
@@ -266,31 +272,49 @@ const App = () => {
     dnd.on('addfile', async (event) => {
       const file = event.file;
       const filename = file.name.toLowerCase();
+      let geojsonString: string | undefined;
       if (filename.endsWith('.geojson')) {
-        const geojsonString = await file.text();
-        const geojsonFormat = new GeoJSON({
-          dataProjection: 'EPSG:5514',
-        });
-        const newFeatures = geojsonFormat.readFeatures(geojsonString);
-        for (const [idx, feature] of newFeatures.entries()) {
-          feature.setId(idx + 1);
-        }
-        fileOpened({ name: event.file.name, features: newFeatures });
+        geojsonString = await file.text();
       } else if (filename.endsWith('.dxf')) {
-        const formData = new FormData();
-        formData.append('file', file, file.name);
-        const resp = await fetch('/api/files/v1/files', {
-          method: 'POST',
-          body: formData,
+        fileOpened({ name: event.file.name, features: null });
+        const filesClient = createFilesClient({
+          baseUrl: 'http://localhost:3000',
         });
-        console.log(resp.status);
-        if (resp.status === 200) {
-          const respJson = await resp.json();
-          console.log(respJson);
-        } else {
-          console.log('error', await resp.text());
-        }
+        const dxfResp = await postFile({ body: { file }, client: filesClient });
+        assertIsDefined(dxfResp.data);
+        const dxfUrl = dxfResp.data.url;
+
+        const ogr2ogrClient = createOgr2ogrClient({
+          baseUrl: 'http://localhost:3000',
+        });
+        const unsafeGeojsonResp = await dxfToGeojson({
+          body: { file_url: dxfUrl },
+          client: ogr2ogrClient,
+        });
+        assertIsDefined(unsafeGeojsonResp.data);
+        const unsafeGeojsonUrl = unsafeGeojsonResp.data.file_url;
+
+        const qgisClient = createQgisClient({
+          baseUrl: 'http://localhost:3000',
+        });
+        const geojsonUrlResp = await fixGeometries({
+          body: { file_url: unsafeGeojsonUrl },
+          client: qgisClient,
+        });
+        assertIsDefined(geojsonUrlResp.data);
+        const geojsonUrl = geojsonUrlResp.data.file_url;
+
+        await new Promise((r) => setTimeout(r, 2000));
+        geojsonString = await fetch(geojsonUrl).then((r) => r.text());
       }
+      const geojsonFormat = new GeoJSON({
+        dataProjection: 'EPSG:5514',
+      });
+      const newFeatures = geojsonFormat.readFeatures(geojsonString);
+      for (const [idx, feature] of newFeatures.entries()) {
+        feature.setId(idx + 1);
+      }
+      fileOpened({ name: event.file.name, features: newFeatures });
     });
     map.addInteraction(dnd);
     return () => {
@@ -319,6 +343,9 @@ const App = () => {
     vectorExtentSource.clear(true);
     parcelSource.clear();
     map.renderSync();
+    if (!features || !extentFeatures) {
+      return;
+    }
 
     // show features
     vectorSource.addFeatures(features);
@@ -343,13 +370,14 @@ const App = () => {
 
   useEffect(() => {
     (async () => {
-      if (!isFileOpened) {
+      if (!areFeaturesLoaded) {
         return;
       }
       assertIsDefined(vectorLayerRef.current);
       const vectorLayer = vectorLayerRef.current;
       const vectorSource = vectorLayer.getSource();
       assertIsDefined(vectorSource);
+      assertIsDefined(mainExtents);
       if (mainExtents.length > 0) {
         if (landUseCodeListRef.current == null) {
           landUseCodeListRef.current = await fetchCodeList(
@@ -432,7 +460,7 @@ const App = () => {
         parcelAreasLoaded({ parcelAreas: {} });
       }
     })();
-  }, [isFileOpened, mainExtents]);
+  }, [areFeaturesLoaded, mainExtents]);
 
   useEffect(() => {
     assertIsDefined(parcelLayerRef.current);

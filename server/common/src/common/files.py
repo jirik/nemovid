@@ -1,6 +1,6 @@
 import os.path
 import uuid
-from urllib.parse import unquote, urljoin
+from urllib.parse import quote, unquote, urljoin
 
 from pydantic import HttpUrl
 
@@ -8,7 +8,7 @@ from common.settings import settings
 
 
 def file_path_to_static_url(file_path: str) -> str:
-    rel_path = os.path.relpath(file_path, settings.files_dir_path)
+    rel_path = quote(os.path.relpath(file_path, settings.files_dir_path))
     url_path = os.path.join(settings.static_files_url_path, rel_path)
     return urljoin(
         str(settings.public_url),

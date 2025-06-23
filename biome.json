@@ -31,5 +31,16 @@
         "noUnusedPrivateClassMembers": "error"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "include": ["src/server/**"],
+      "linter": {
+        "enabled": false
+      },
+      "formatter": {
+        "enabled": false
+      }
+    }
+  ]
 }

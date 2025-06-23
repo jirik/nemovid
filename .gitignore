@@ -16,9 +16,9 @@ __pycache__
 
 
 /data
+.env
 
+src/server
 /src/settings.*
 !/src/settings.ts
 !/src/settings.default.ts
-
-.env

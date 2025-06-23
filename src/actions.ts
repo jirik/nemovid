@@ -23,7 +23,7 @@ const set = useAppStore.getState().set;
 export const fileOpened = ({
   name,
   features,
-}: { name: string; features: Feature[] }) =>
+}: { name: string; features: Feature[] | null }) =>
   set((state) => {
     state.fileName = name;
     state.features = features;

@@ -28,14 +28,18 @@ class DxfToGeojsonResponse(BaseModel):
 @app.post(
     "/api/ogr2ogr/v1/dxf-to-geojson",
     summary="DXF to GeoJSON",
+    operation_id="dxf_to_geojson",
+    responses={
+        200: {"model": DxfToGeojsonResponse, "description": "Success"},
+    },
 )
-async def post_dxf_to_geojson(options: DxfToGeojsonRequest):
-    file_path: str = static_url_to_file_path(options.file_url)
+async def post_dxf_to_geojson(request: DxfToGeojsonRequest):
+    file_path: str = static_url_to_file_path(request.file_url)
     out_path = get_output_path(file_path)
 
     run_cmd(
         f"""ogr2ogr "{out_path}" "{file_path}" -f GeoJSON --config DXF_FEATURE_LIMIT_PER_BLOCK -1 -a_srs EPSG:5514 --config DXF_ENCODING utf-8 -dim XY -dialect SQLITE -sql "SELECT * FROM entities WHERE LOWER(GeometryType(geometry)) LIKE '%polygon%' AND Layer LIKE '0-%'" """
     )
 
-    out_url = file_path_to_static_url(out_path)
-    return {"file_url": out_url}
+    result = DxfToGeojsonResponse(file_url=HttpUrl(file_path_to_static_url(out_path)))
+    return result

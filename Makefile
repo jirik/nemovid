@@ -73,3 +73,8 @@ dev:
 
 stop:
 	docker compose stop
+
+generate-typescript:
+	npx @hey-api/openapi-ts -i http://localhost:8000/openapi.json -o src/server/files/
+	npx @hey-api/openapi-ts -i http://localhost:8001/openapi.json -o src/server/ogr2ogr/
+	npx @hey-api/openapi-ts -i http://localhost:8002/openapi.json -o src/server/qgis/
