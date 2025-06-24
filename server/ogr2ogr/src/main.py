@@ -38,7 +38,7 @@ async def post_dxf_to_geojson(request: DxfToGeojsonRequest):
     out_path = get_output_path(file_path)
 
     run_cmd(
-        f"""ogr2ogr "{out_path}" "{file_path}" -f GeoJSON --config DXF_FEATURE_LIMIT_PER_BLOCK -1 -a_srs EPSG:5514 --config DXF_ENCODING utf-8 -dim XY -dialect SQLITE -sql "SELECT * FROM entities WHERE LOWER(GeometryType(geometry)) LIKE '%polygon%' AND Layer LIKE '0-%'" """
+        f"""ogr2ogr "{out_path}" "{file_path}" -f GeoJSON --config DXF_FEATURE_LIMIT_PER_BLOCK -1 -a_srs EPSG:5514 --config DXF_ENCODING utf-8 -dim XY -dialect SQLITE -sql "SELECT * FROM entities WHERE LOWER(GeometryType(geometry)) LIKE '%polygon%'" """
     )
 
     result = DxfToGeojsonResponse(file_url=HttpUrl(file_path_to_static_url(out_path)))
