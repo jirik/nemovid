@@ -333,6 +333,7 @@ export function* setParcelIntersections({
 export const ParcelOfficialAreaM2PropName = 'statkarParcelAreaM2';
 export const ParcelCoveredAreaM2PropName = 'statkarParcelCoverM2';
 export const ParcelCoveredAreaPercPropName = 'statkarParcelCoverPerc';
+export const ParcelHasBuildingPropName = 'building';
 
 export type ParcelAreas = {
   coveredAreaM2: number;
@@ -355,12 +356,18 @@ export const filterParcels = ({
   ) {
     return models;
   }
+  const { hasBuilding: _a, ...areaFilters } = filters;
+  const { hasBuilding: _b, ...defaultAreaFilters } = defaultFilters;
+  const useAreaFilters = !deepEqual(areaFilters, defaultAreaFilters);
   const filteredFeaturesList = Object.values(features).filter((feature) => {
     const areaM2 = feature.get(ParcelCoveredAreaM2PropName) as number;
     const areaPerc = feature.get(ParcelCoveredAreaPercPropName) as number;
+    const hasBuilding = feature.get(ParcelHasBuildingPropName) as boolean;
     return (
-      areaM2 <= filters.maxCoveredAreaM2 &&
-      areaPerc <= filters.maxCoveredAreaPerc
+      (!useAreaFilters ||
+        (areaM2 <= filters.maxCoveredAreaM2 &&
+          areaPerc <= filters.maxCoveredAreaPerc)) &&
+      (filters.hasBuilding === null || hasBuilding === filters.hasBuilding)
     );
   });
   const filteredFeatures = filteredFeaturesList.reduce(

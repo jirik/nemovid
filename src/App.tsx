@@ -6,6 +6,7 @@ import type { Feature } from 'ol';
 import type { FeatureLike } from 'ol/Feature';
 import OlMap from 'ol/Map.js';
 import View from 'ol/View.js';
+import type { ExpressionValue } from 'ol/expr/expression';
 import * as olExtent from 'ol/extent';
 import { GeoJSON } from 'ol/format';
 import type { GeoJSONFeatureCollection } from 'ol/format/GeoJSON';
@@ -43,6 +44,7 @@ import {
 import {
   ParcelCoveredAreaM2PropName,
   ParcelCoveredAreaPercPropName,
+  ParcelHasBuildingPropName,
   assertMinExtentRadius,
   loadTileLayerFromWmtsCapabilities,
 } from './olutil.ts';
@@ -141,6 +143,23 @@ const App = () => {
           zIndex: 2,
         }),
       ];
+      const parcelFilters: ExpressionValue = [
+        [
+          '<=',
+          ['get', ParcelCoveredAreaM2PropName],
+          ['var', 'maxCoveredAreaM2'],
+        ],
+        [
+          '<=',
+          ['get', ParcelCoveredAreaPercPropName],
+          ['var', 'maxCoveredAreaPerc'],
+        ],
+        [
+          'any',
+          ['==', ['var', 'hasBuilding'], -1],
+          ['==', ['var', 'hasBuilding'], ['get', ParcelHasBuildingPropName]],
+        ],
+      ];
 
       const parcelLayer = new WebGLVectorLayer({
         source: new VectorSource(),
@@ -149,16 +168,7 @@ const App = () => {
             filter: [
               'all',
               ['==', ['var', 'highlightedId'], ['id']],
-              [
-                '<=',
-                ['get', ParcelCoveredAreaM2PropName],
-                ['var', 'maxCoveredAreaM2'],
-              ],
-              [
-                '<=',
-                ['get', ParcelCoveredAreaPercPropName],
-                ['var', 'maxCoveredAreaPerc'],
-              ],
+              ...parcelFilters,
             ],
             style: {
               'stroke-color': '#ffff00',
@@ -168,19 +178,7 @@ const App = () => {
           },
           {
             else: true,
-            filter: [
-              'all',
-              [
-                '<=',
-                ['get', ParcelCoveredAreaM2PropName],
-                ['var', 'maxCoveredAreaM2'],
-              ],
-              [
-                '<=',
-                ['get', ParcelCoveredAreaPercPropName],
-                ['var', 'maxCoveredAreaPerc'],
-              ],
-            ],
+            filter: ['all', ...parcelFilters],
             style: {
               'stroke-color': '#ffff00',
               'stroke-width': 1,
@@ -192,6 +190,10 @@ const App = () => {
           highlightedId: '',
           maxCoveredAreaM2: defaultFilters.maxCoveredAreaM2,
           maxCoveredAreaPerc: defaultFilters.maxCoveredAreaPerc,
+          hasBuilding:
+            defaultFilters.hasBuilding === null
+              ? -1
+              : defaultFilters.hasBuilding,
         },
       });
       parcelLayerRef.current = parcelLayer;
@@ -417,6 +419,8 @@ const App = () => {
                 });
               }
               parcel.set('landUse', landUseCode, true);
+              const hasBuilding = !!parcel.get('building');
+              parcel.set(ParcelHasBuildingPropName, hasBuilding, true);
               parcel.unset('referencePoint', true);
             }
           }
@@ -509,6 +513,8 @@ const App = () => {
       highlightedId: highlightedParcelId || '',
       maxCoveredAreaM2: parcelFilters.maxCoveredAreaM2,
       maxCoveredAreaPerc: parcelFilters.maxCoveredAreaPerc,
+      hasBuilding:
+        parcelFilters.hasBuilding === null ? -1 : parcelFilters.hasBuilding,
     });
   }, [highlightedParcelId, parcelFilters]);
 

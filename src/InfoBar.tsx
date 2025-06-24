@@ -1,5 +1,6 @@
 import { saveAs } from 'file-saver';
-import { type ReactNode, useCallback } from 'react';
+import { Fragment, type ReactNode, useCallback } from 'react';
+import { BooleanFilter } from './BooleanFilter.tsx';
 import styles from './InfoBar.module.css';
 import { SliderInput } from './SliderInput.tsx';
 import { parcelFiltersChanged } from './actions.ts';
@@ -165,19 +166,25 @@ const FilterSection = () => {
         typeof value === 'string' ? Number.parseInt(value) : value,
     });
   }, []);
-  let content: React.ReactElement | null;
+  const hasBuildingCb = useCallback((value: boolean | null) => {
+    parcelFiltersChanged({
+      hasBuilding: value,
+    });
+  }, []);
+  const content: React.ReactElement[] = [];
+  let areaContent: React.ReactElement | null;
   if (areaFiltersState == null) {
     assertIsDefined(parcels);
-    content = (
-      <div>
+    areaContent = (
+      <div key="area">
         Počítám velikosti překryvů ... {processedParcels || 0}/
         {Object.values(parcels).length} parcel zpracováno
       </div>
     );
   } else {
     assertIsDefined(parcelStats.maxCoveredAreaM2);
-    content = (
-      <>
+    areaContent = (
+      <Fragment key="area">
         <SliderInput
           value={parcelFilters.maxCoveredAreaM2}
           maxValue={parcelStats.maxCoveredAreaM2}
@@ -190,9 +197,22 @@ const FilterSection = () => {
           label="Maximální překrytí parcely v % rozlohy parcely"
           onChange={maxCoveredAreaPercCb}
         />
-      </>
+      </Fragment>
     );
   }
+  content.push(areaContent);
+  content.push(
+    <BooleanFilter
+      filter={parcelFilters.hasBuilding}
+      label="S budovou / bez budovy"
+      valueLabels={{
+        true: 's budovou',
+        false: 'bez budovy',
+        any: 'všechny',
+      }}
+      onChange={hasBuildingCb}
+    />,
+  );
   return (
     <div className={styles.section}>
       <h3>Filtry parcel</h3>

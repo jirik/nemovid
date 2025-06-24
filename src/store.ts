@@ -22,6 +22,7 @@ import * as ts from './typescriptUtil.ts';
 export type ParcelFilters = {
   maxCoveredAreaM2: number;
   maxCoveredAreaPerc: number;
+  hasBuilding: boolean | null;
 };
 
 export interface State {
@@ -46,6 +47,7 @@ export interface State {
 export const defaultFilters: ParcelFilters = {
   maxCoveredAreaM2: 1_000_000_000,
   maxCoveredAreaPerc: 100,
+  hasBuilding: null,
 };
 
 const initialState: State = {
@@ -129,6 +131,7 @@ export type Parcel = {
   zoning: Zoning;
   titleDeed: TitleDeed | null;
   landUse: CodeListItem;
+  hasBuilding: boolean;
 };
 
 export type SimpleZoning = Omit<Zoning, 'parcels' | 'titleDeeds'> & {

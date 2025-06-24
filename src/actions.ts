@@ -5,6 +5,7 @@ import {
   type ParcelAreas,
   ParcelCoveredAreaM2PropName,
   ParcelCoveredAreaPercPropName,
+  ParcelHasBuildingPropName,
 } from './olutil.ts';
 import {
   type ParcelFilters,
@@ -61,12 +62,16 @@ export const parcelsLoaded = ({ parcels }: { parcels: Feature[] }) =>
         }
         const zoning = state.zonings[zoningId] as SimpleZoning;
         const landUseCode = parcelFeature.get('landUse') as string;
+        const hasBuilding = parcelFeature.get(
+          ParcelHasBuildingPropName,
+        ) as boolean;
         const parcel: SimpleParcel = {
           id: parcelId,
           label: getParcelLabel(parcelFeature),
           titleDeed: null,
           zoning: zoningId,
           landUse: landUseCode,
+          hasBuilding,
         };
 
         parcelsDict[parcelId] = parcel;
