@@ -1,3 +1,4 @@
+import merge from 'lodash.merge';
 import type { Feature } from 'ol';
 import { assertIsDefined } from './assert.ts';
 import { getParcelLabel, getParcelZoning } from './cuzk.ts';
@@ -14,6 +15,7 @@ import {
   type SimpleTitleDeed,
   type SimpleZoning,
   defaultFilters,
+  getCodeLists,
   getParcelStats,
   useAppStore,
 } from './store.ts';
@@ -80,6 +82,17 @@ export const parcelsLoaded = ({ parcels }: { parcels: Feature[] }) =>
       }
     }
     state.parcels = parcelsDict;
+    const newCodeLists = getCodeLists({ ...state } as State);
+    const landUse = newCodeLists.landUse;
+    if (landUse) {
+      state.parcelFilters.landUse = Object.keys(landUse.values).reduce(
+        (prev: { [code: string]: boolean }, code) => {
+          prev[code] = true;
+          return prev;
+        },
+        {},
+      );
+    }
   });
 
 export const parcelAreasLoaded = ({
@@ -119,10 +132,7 @@ export const mapPointerMove = ({
 
 export const parcelFiltersChanged = (filters: Partial<ParcelFilters>) =>
   set((state) => {
-    state.parcelFilters = {
-      ...state.parcelFilters,
-      ...filters,
-    };
+    merge(state.parcelFilters, filters);
   });
 
 export const parcelAreasProgress = (processedParcels: number) =>

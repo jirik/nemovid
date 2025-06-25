@@ -1,5 +1,7 @@
 import type { Draft } from 'immer';
 import type { Feature } from 'ol';
+import type { ExpressionValue } from 'ol/expr/expression';
+import type { FlatStyleLike } from 'ol/style/flat';
 import { createSelector } from 'reselect';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
@@ -14,6 +16,8 @@ import {
 import * as olUtil from './olutil.ts';
 import {
   ParcelCoveredAreaM2PropName,
+  ParcelCoveredAreaPercPropName,
+  ParcelHasBuildingPropName,
   extentsToFeatures,
   filterParcels,
 } from './olutil.ts';
@@ -23,6 +27,7 @@ export type ParcelFilters = {
   maxCoveredAreaM2: number;
   maxCoveredAreaPerc: number;
   hasBuilding: boolean | null;
+  landUse: { [code: string]: boolean } | null;
 };
 
 export interface State {
@@ -48,6 +53,7 @@ export const defaultFilters: ParcelFilters = {
   maxCoveredAreaM2: 1_000_000_000,
   maxCoveredAreaPerc: 100,
   hasBuilding: null,
+  landUse: null,
 };
 
 const initialState: State = {
@@ -63,7 +69,7 @@ const initialState: State = {
   highlightedFeature: null,
   parcelAreasTimestamp: null,
   parcelInfosTimestamp: null,
-  parcelFilters: { ...defaultFilters },
+  parcelFilters: structuredClone(defaultFilters),
   codeLists: {
     landUse: null,
   },
@@ -359,9 +365,9 @@ export const getAreFeaturesLoaded = createAppSelector(
 );
 
 export const getCodeLists = createAppSelector(
-  [getParcels, (state) => state.codeLists],
-  (parcels, codeLists): State['codeLists'] => {
-    if (parcels == null) {
+  [(state) => state.parcels, (state) => state.codeLists],
+  (simpleParcels, codeLists): State['codeLists'] => {
+    if (simpleParcels == null) {
       return structuredClone(initialState.codeLists);
     }
     return ts.fromEntries(
@@ -375,8 +381,8 @@ export const getCodeLists = createAppSelector(
           };
           for (const code of Object.keys(fullCodeList.values)) {
             if (
-              Object.values(parcels).some(
-                (parcel) => parcel[codeListKey]?.code === code,
+              Object.values(simpleParcels).some(
+                (parcel) => parcel[codeListKey] === code,
               )
             ) {
               codeList.values[code] = fullCodeList.values[code];
@@ -392,3 +398,105 @@ export const getCodeLists = createAppSelector(
 export type ParcelStats = {
   maxCoveredAreaM2: number | null;
 };
+
+export const getParcelLandUseGlVars = createAppSelector(
+  [(state) => state.parcelFilters.landUse],
+  (landUseFilter) => {
+    if (!landUseFilter) {
+      return {};
+    }
+    return Object.entries(landUseFilter).reduce(
+      (prev: { [varName: string]: number }, [code, isChecked]) => {
+        const varName = `landUse_${code}`;
+        prev[varName] = isChecked ? 1 : 0;
+        return prev;
+      },
+      {},
+    );
+  },
+);
+
+export const getParcelGlVars = createAppSelector(
+  [
+    getParcelLandUseGlVars,
+    (state) => state.parcelFilters,
+    (state) => state.highlightedParcel,
+  ],
+  (
+    parcelLandUseGlVars,
+    parcelFilters,
+    highlightedParcel,
+  ): { [varName: string]: number | boolean } => {
+    const result = {
+      ...parcelLandUseGlVars,
+      highlightedId: highlightedParcel || -1,
+      maxCoveredAreaM2: parcelFilters.maxCoveredAreaM2,
+      maxCoveredAreaPerc: parcelFilters.maxCoveredAreaPerc,
+      hasBuilding:
+        parcelFilters.hasBuilding === null ? -1 : parcelFilters.hasBuilding,
+    };
+    return result;
+  },
+);
+
+export const getParcelGlStyle = createAppSelector(
+  [(state) => state.codeLists.landUse],
+  (landUseCodeList): FlatStyleLike => {
+    const landUseCodes = Object.keys(landUseCodeList?.values || {});
+    const landUseGlFilters =
+      landUseCodes.length > 0
+        ? [
+            [
+              'any',
+              ...landUseCodes.reduce((prev: ExpressionValue[], code) => {
+                prev.push([
+                  'all',
+                  ['==', ['get', 'landUse'], code],
+                  ['==', ['var', `landUse_${code}`], 1],
+                ]);
+                return prev;
+              }, []),
+            ],
+          ]
+        : [];
+
+    const parcelFilters: ExpressionValue = [
+      ['<=', ['get', ParcelCoveredAreaM2PropName], ['var', 'maxCoveredAreaM2']],
+      [
+        '<=',
+        ['get', ParcelCoveredAreaPercPropName],
+        ['var', 'maxCoveredAreaPerc'],
+      ],
+      [
+        'any',
+        ['==', ['var', 'hasBuilding'], -1],
+        ['==', ['var', 'hasBuilding'], ['get', ParcelHasBuildingPropName]],
+      ],
+      ...landUseGlFilters,
+    ];
+
+    return [
+      {
+        filter: [
+          'all',
+          ['==', ['var', 'highlightedId'], ['id']],
+          ...parcelFilters,
+        ],
+        style: {
+          'stroke-color': '#ffff00',
+          'stroke-width': 4,
+          'fill-color': 'rgba(255,255,000,0.4)',
+        },
+      },
+      {
+        else: true,
+        filter: ['all', ...parcelFilters],
+        style: {
+          'stroke-color': '#ffff00',
+          'stroke-width': 1,
+          'fill-color': 'rgba(255,255,000,0.4)',
+        },
+      },
+    ];
+  },
+);

@@ -163,7 +163,7 @@ export type CodeList = {
 export const NullItem = Object.freeze({
   id: 'null',
   code: 'null',
-  label: 'null (neznámá hodnota)',
+  label: 'neznámá hodnota (null)',
 });
 
 type CodeListResponse = {

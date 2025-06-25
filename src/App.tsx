@@ -6,7 +6,6 @@ import type { Feature } from 'ol';
 import type { FeatureLike } from 'ol/Feature';
 import OlMap from 'ol/Map.js';
 import View from 'ol/View.js';
-import type { ExpressionValue } from 'ol/expr/expression';
 import * as olExtent from 'ol/extent';
 import { GeoJSON } from 'ol/format';
 import type { GeoJSONFeatureCollection } from 'ol/format/GeoJSON';
@@ -17,6 +16,7 @@ import WebGLVectorLayer from 'ol/layer/WebGLVector';
 import { register } from 'ol/proj/proj4';
 import VectorSource from 'ol/source/Vector';
 import { Stroke, Style } from 'ol/style';
+import type { FlatStyleLike } from 'ol/style/flat';
 import proj4 from 'proj4';
 import { useEffect, useRef } from 'react';
 import { MIN_MAIN_EXTENT_RADIUS_PX } from '../constants.ts';
@@ -42,8 +42,6 @@ import {
   parcelsGmlToFeatures,
 } from './cuzk.ts';
 import {
-  ParcelCoveredAreaM2PropName,
-  ParcelCoveredAreaPercPropName,
   ParcelHasBuildingPropName,
   assertMinExtentRadius,
   loadTileLayerFromWmtsCapabilities,
@@ -56,10 +54,11 @@ import { fixGeometries } from './server/qgis';
 import { createClient as createQgisClient } from './server/qgis/client';
 import settings from './settings.ts';
 import {
-  defaultFilters,
   getAreFeaturesLoaded,
   getMainExtentFeatures,
   getMainExtents,
+  getParcelGlStyle,
+  getParcelGlVars,
   useAppStore,
 } from './store.ts';
 import type { IncomingMessage, OutgoingMessage } from './worker.ts';
@@ -78,11 +77,15 @@ const App = () => {
   const extentFeatures = useAppStore(getMainExtentFeatures);
   const areFeaturesLoaded = useAppStore(getAreFeaturesLoaded);
   const mainExtents = useAppStore(getMainExtents);
+  const parcelGlVars = useAppStore(getParcelGlVars);
+  const parcelGlVarsRef = useRef<{ [varName: string]: number | boolean }>(
+    parcelGlVars,
+  );
+  const parcelGlStyle = useAppStore(getParcelGlStyle);
+  const parcelGlStyleRef = useRef<FlatStyleLike>(parcelGlStyle);
   const features = useAppStore((state) => state.features);
-  const highlightedParcelId = useAppStore((state) => state.highlightedParcel);
   const highlightedFeatureId = useAppStore((state) => state.highlightedFeature);
   const parcels = useAppStore((state) => state.parcelFeatures);
-  const parcelFilters = useAppStore((state) => state.parcelFilters);
   const mapRef = useRef<OlMap | null>(null);
   const vectorLayerRef = useRef<WebGLVectorLayer | null>(null);
   const vectorExtentLayerRef = useRef<VectorLayer | null>(null);
@@ -143,58 +146,11 @@ const App = () => {
           zIndex: 2,
         }),
       ];
-      const parcelFilters: ExpressionValue = [
-        [
-          '<=',
-          ['get', ParcelCoveredAreaM2PropName],
-          ['var', 'maxCoveredAreaM2'],
-        ],
-        [
-          '<=',
-          ['get', ParcelCoveredAreaPercPropName],
-          ['var', 'maxCoveredAreaPerc'],
-        ],
-        [
-          'any',
-          ['==', ['var', 'hasBuilding'], -1],
-          ['==', ['var', 'hasBuilding'], ['get', ParcelHasBuildingPropName]],
-        ],
-      ];
 
       const parcelLayer = new WebGLVectorLayer({
         source: new VectorSource(),
-        style: [
-          {
-            filter: [
-              'all',
-              ['==', ['var', 'highlightedId'], ['id']],
-              ...parcelFilters,
-            ],
-            style: {
-              'stroke-color': '#ffff00',
-              'stroke-width': 4,
-              'fill-color': 'rgba(255,255,000,0.4)',
-            },
-          },
-          {
-            else: true,
-            filter: ['all', ...parcelFilters],
-            style: {
-              'stroke-color': '#ffff00',
-              'stroke-width': 1,
-              'fill-color': 'rgba(255,255,000,0.4)',
-            },
-          },
-        ],
-        variables: {
-          highlightedId: '',
-          maxCoveredAreaM2: defaultFilters.maxCoveredAreaM2,
-          maxCoveredAreaPerc: defaultFilters.maxCoveredAreaPerc,
-          hasBuilding:
-            defaultFilters.hasBuilding === null
-              ? -1
-              : defaultFilters.hasBuilding,
-        },
+        style: parcelGlStyleRef.current,
+        variables: parcelGlVarsRef.current,
       });
       parcelLayerRef.current = parcelLayer;
 
@@ -509,14 +465,14 @@ const App = () => {
   useEffect(() => {
     assertIsDefined(parcelLayerRef.current);
     const parcelLayer = parcelLayerRef.current;
-    parcelLayer.updateStyleVariables({
-      highlightedId: highlightedParcelId || '',
-      maxCoveredAreaM2: parcelFilters.maxCoveredAreaM2,
-      maxCoveredAreaPerc: parcelFilters.maxCoveredAreaPerc,
-      hasBuilding:
-        parcelFilters.hasBuilding === null ? -1 : parcelFilters.hasBuilding,
-    });
-  }, [highlightedParcelId, parcelFilters]);
+    parcelLayer.updateStyleVariables(parcelGlVars);
+  }, [parcelGlVars]);
+
+  useEffect(() => {
+    assertIsDefined(parcelLayerRef.current);
+    const parcelLayer = parcelLayerRef.current;
+    parcelLayer.setStyle(parcelGlStyle);
+  }, [parcelGlStyle]);
 
   useEffect(() => {
     assertIsDefined(vectorLayerRef.current);

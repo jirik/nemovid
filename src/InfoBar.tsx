@@ -1,6 +1,7 @@
 import { saveAs } from 'file-saver';
 import { Fragment, type ReactNode, useCallback } from 'react';
 import { BooleanFilter } from './BooleanFilter.tsx';
+import { CodeListFilter } from './CodeListFilter.tsx';
 import styles from './InfoBar.module.css';
 import { SliderInput } from './SliderInput.tsx';
 import { parcelFiltersChanged } from './actions.ts';
@@ -9,6 +10,7 @@ import settings from './settings.ts';
 import {
   type Zoning,
   getAreaFiltersState,
+  getCodeLists,
   getOwners,
   getParcelStats,
   getParcels,
@@ -153,6 +155,7 @@ const FilterSection = () => {
   const parcelFilters = useAppStore((state) => state.parcelFilters);
   const processedParcels = useAppStore((state) => state.processedParcels);
   const parcels = useAppStore((state) => state.parcels);
+  const codeLists = useAppStore(getCodeLists);
 
   const maxCoveredAreaM2Cb = useCallback((value: number | string) => {
     parcelFiltersChanged({
@@ -169,6 +172,11 @@ const FilterSection = () => {
   const hasBuildingCb = useCallback((value: boolean | null) => {
     parcelFiltersChanged({
       hasBuilding: value,
+    });
+  }, []);
+  const landuseCb = useCallback((values: { [code: string]: boolean }) => {
+    parcelFiltersChanged({
+      landUse: values,
     });
   }, []);
   const content: React.ReactElement[] = [];
@@ -203,6 +211,7 @@ const FilterSection = () => {
   content.push(areaContent);
   content.push(
     <BooleanFilter
+      key="hasBuilding"
       filter={parcelFilters.hasBuilding}
       label="S budovou / bez budovy"
       valueLabels={{
@@ -213,6 +222,18 @@ const FilterSection = () => {
       onChange={hasBuildingCb}
     />,
   );
+  const codeListFilter = parcelFilters.landUse;
+  if (codeLists.landUse != null && codeListFilter != null) {
+    const codeList = codeLists.landUse;
+    content.push(
+      <CodeListFilter
+        key={codeList.id}
+        list={codeList}
+        filter={codeListFilter}
+        onChange={landuseCb}
+      />,
+    );
+  }
   return (
     <div className={styles.section}>
       <h3>Filtry parcel</h3>
