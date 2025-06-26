@@ -1,5 +1,7 @@
+import { Collapse } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import { saveAs } from 'file-saver';
-import { Fragment, type ReactNode, useCallback } from 'react';
+import { type ReactNode, useCallback } from 'react';
 import { BooleanFilter } from './BooleanFilter.tsx';
 import { CodeListFilter } from './CodeListFilter.tsx';
 import styles from './InfoBar.module.css';
@@ -156,6 +158,7 @@ const FilterSection = () => {
   const processedParcels = useAppStore((state) => state.processedParcels);
   const parcels = useAppStore((state) => state.parcels);
   const codeLists = useAppStore(getCodeLists);
+  const [opened, { toggle }] = useDisclosure(true);
 
   const maxCoveredAreaM2Cb = useCallback((value: number | string) => {
     parcelFiltersChanged({
@@ -190,6 +193,7 @@ const FilterSection = () => {
     assertIsDefined(parcels);
     areaContent = (
       <div key="area">
+        <h4>Míra překryvu</h4>
         Počítám velikosti překryvů ... {processedParcels || 0}/
         {Object.values(parcels).length} parcel zpracováno
       </div>
@@ -197,7 +201,8 @@ const FilterSection = () => {
   } else {
     assertIsDefined(parcelStats.maxCoveredAreaM2);
     areaContent = (
-      <Fragment key="area">
+      <div key="area">
+        <h4>Míra překryvu</h4>
         <SliderInput
           value={parcelFilters.maxCoveredAreaM2}
           maxValue={parcelStats.maxCoveredAreaM2}
@@ -210,7 +215,7 @@ const FilterSection = () => {
           label="Maximální překrytí parcely v % rozlohy parcely"
           onChange={maxCoveredAreaPercCb}
         />
-      </Fragment>
+      </div>
     );
   }
   content.push(areaContent);
@@ -250,9 +255,9 @@ const FilterSection = () => {
     );
   }
   return (
-    <div className={styles.section}>
-      <h3>Filtry parcel</h3>
-      {content}
+    <div className={[styles.section, styles.filterSection].join(' ')}>
+      <h3 onClick={toggle}>{opened ? '⊟' : '⊞'} Filtry parcel</h3>
+      <Collapse in={opened}>{content}</Collapse>
     </div>
   );
 };

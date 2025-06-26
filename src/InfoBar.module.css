@@ -14,3 +14,9 @@
     margin: 0;
   }
 }
+
+.filterSection {
+  & > h3 {
+    cursor: pointer;
+  }
+}

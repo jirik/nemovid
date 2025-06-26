@@ -29,6 +29,9 @@
         "noUnusedVariables": "error",
         "noUnusedImports": "error",
         "noUnusedPrivateClassMembers": "error"
+      },
+      "a11y": {
+        "useKeyWithClickEvents": "off"
       }
     }
   },

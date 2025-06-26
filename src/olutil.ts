@@ -356,9 +356,9 @@ export const filterParcels = ({
   ) {
     return models;
   }
-  const { hasBuilding: _a, ...areaFilters } = filters;
-  const { hasBuilding: _b, ...defaultAreaFilters } = defaultFilters;
-  const useAreaFilters = !deepEqual(areaFilters, defaultAreaFilters);
+  const useAreaFilters =
+    filters.maxCoveredAreaM2 !== defaultFilters.maxCoveredAreaM2 ||
+    filters.maxCoveredAreaPerc !== defaultFilters.maxCoveredAreaPerc;
   const useLandUseFilter =
     filters.landUse != null &&
     !Object.values(filters.landUse).every((bool) => bool);
