@@ -362,17 +362,22 @@ export const filterParcels = ({
   const useLandUseFilter =
     filters.landUse != null &&
     !Object.values(filters.landUse).every((bool) => bool);
+  const useLandTypeFilter =
+    filters.landType != null &&
+    !Object.values(filters.landType).every((bool) => bool);
   const filteredFeaturesList = Object.values(features).filter((feature) => {
     const areaM2 = feature.get(ParcelCoveredAreaM2PropName) as number;
     const areaPerc = feature.get(ParcelCoveredAreaPercPropName) as number;
     const hasBuilding = feature.get(ParcelHasBuildingPropName) as boolean;
     const landUseCode = feature.get('landUse') as string;
+    const landTypeCode = feature.get('landType') as string;
     return (
       (!useAreaFilters ||
         (areaM2 <= filters.maxCoveredAreaM2 &&
           areaPerc <= filters.maxCoveredAreaPerc)) &&
       (filters.hasBuilding === null || hasBuilding === filters.hasBuilding) &&
-      (!useLandUseFilter || filters.landUse?.[landUseCode])
+      (!useLandUseFilter || filters.landUse?.[landUseCode]) &&
+      (!useLandTypeFilter || filters.landType?.[landTypeCode])
     );
   });
   const filteredFeatures = filteredFeaturesList.reduce(

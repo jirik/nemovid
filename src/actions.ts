@@ -1,6 +1,7 @@
 import merge from 'lodash.merge';
 import type { Feature } from 'ol';
 import { assertIsDefined } from './assert.ts';
+import { getFilter } from './codeList.ts';
 import { getParcelLabel, getParcelZoning } from './cuzk.ts';
 import {
   type ParcelAreas,
@@ -64,6 +65,7 @@ export const parcelsLoaded = ({ parcels }: { parcels: Feature[] }) =>
         }
         const zoning = state.zonings[zoningId] as SimpleZoning;
         const landUseCode = parcelFeature.get('landUse') as string;
+        const landTypeCode = parcelFeature.get('landType') as string;
         const hasBuilding = parcelFeature.get(
           ParcelHasBuildingPropName,
         ) as boolean;
@@ -73,6 +75,7 @@ export const parcelsLoaded = ({ parcels }: { parcels: Feature[] }) =>
           titleDeed: null,
           zoning: zoningId,
           landUse: landUseCode,
+          landType: landTypeCode,
           hasBuilding,
         };
 
@@ -83,16 +86,10 @@ export const parcelsLoaded = ({ parcels }: { parcels: Feature[] }) =>
     }
     state.parcels = parcelsDict;
     const newCodeLists = getCodeLists({ ...state } as State);
-    const landUse = newCodeLists.landUse;
-    if (landUse) {
-      state.parcelFilters.landUse = Object.keys(landUse.values).reduce(
-        (prev: { [code: string]: boolean }, code) => {
-          prev[code] = true;
-          return prev;
-        },
-        {},
-      );
-    }
+    state.parcelFilters.landUse = getFilter({ codeList: newCodeLists.landUse });
+    state.parcelFilters.landType = getFilter({
+      codeList: newCodeLists.landType,
+    });
   });
 
 export const parcelAreasLoaded = ({

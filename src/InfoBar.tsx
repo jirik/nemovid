@@ -174,9 +174,14 @@ const FilterSection = () => {
       hasBuilding: value,
     });
   }, []);
-  const landuseCb = useCallback((values: { [code: string]: boolean }) => {
+  const landUseCb = useCallback((values: { [code: string]: boolean }) => {
     parcelFiltersChanged({
       landUse: values,
+    });
+  }, []);
+  const landTypeCb = useCallback((values: { [code: string]: boolean }) => {
+    parcelFiltersChanged({
+      landType: values,
     });
   }, []);
   const content: React.ReactElement[] = [];
@@ -222,15 +227,25 @@ const FilterSection = () => {
       onChange={hasBuildingCb}
     />,
   );
-  const codeListFilter = parcelFilters.landUse;
-  if (codeLists.landUse != null && codeListFilter != null) {
+  if (codeLists.landType != null && parcelFilters.landType != null) {
+    const codeList = codeLists.landType;
+    content.push(
+      <CodeListFilter
+        key={codeList.id}
+        list={codeList}
+        filter={parcelFilters.landType}
+        onChange={landTypeCb}
+      />,
+    );
+  }
+  if (codeLists.landUse != null && parcelFilters.landUse != null) {
     const codeList = codeLists.landUse;
     content.push(
       <CodeListFilter
         key={codeList.id}
         list={codeList}
-        filter={codeListFilter}
-        onChange={landuseCb}
+        filter={parcelFilters.landUse}
+        onChange={landUseCb}
       />,
     );
   }

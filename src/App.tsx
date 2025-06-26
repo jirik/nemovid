@@ -33,13 +33,11 @@ import {
 } from './actions.ts';
 import { assertFeature, assertIsDefined } from './assert.ts';
 import {
-  type CodeList,
-  NullItem,
   fetchCodeList,
-  getItemCodeFromId,
   getParcelsByExtent,
   getTitleDeeds,
   parcelsGmlToFeatures,
+  updateCodeListProp,
 } from './cuzk.ts';
 import {
   ParcelHasBuildingPropName,
@@ -54,6 +52,7 @@ import { fixGeometries } from './server/qgis';
 import { createClient as createQgisClient } from './server/qgis/client';
 import settings from './settings.ts';
 import {
+  type State,
   getAreFeaturesLoaded,
   getMainExtentFeatures,
   getMainExtents,
@@ -90,7 +89,7 @@ const App = () => {
   const vectorLayerRef = useRef<WebGLVectorLayer | null>(null);
   const vectorExtentLayerRef = useRef<VectorLayer | null>(null);
   const parcelLayerRef = useRef<WebGLVectorLayer | null>(null);
-  const landUseCodeListRef = useRef<CodeList | null>(null);
+  const codeListsRef = useRef<State['codeLists']>(null);
 
   useEffect(() => {
     (async () => {
@@ -337,13 +336,21 @@ const App = () => {
       assertIsDefined(vectorSource);
       assertIsDefined(mainExtents);
       if (mainExtents.length > 0) {
-        if (landUseCodeListRef.current == null) {
-          landUseCodeListRef.current = await fetchCodeList(
+        if (codeListsRef.current == null) {
+          const landUseCodeList = await fetchCodeList(
             'https://services.cuzk.gov.cz/registry/codelist/LandUseValue/LandUseValue.json',
           );
-          codeListsLoaded({ landUse: landUseCodeListRef.current });
+          const landTypeCodeList = await fetchCodeList(
+            'https://services.cuzk.gov.cz/registry/codelist/LandTypeValue/LandTypeValue.json',
+          );
+          codeListsRef.current = {
+            landUse: landUseCodeList,
+            landType: landTypeCodeList,
+          };
+          codeListsLoaded(codeListsRef.current);
         }
-        const landUseCodeList = landUseCodeListRef.current;
+        const codeLists = codeListsRef.current;
+        assertIsDefined(codeLists);
         const results = await Promise.all(
           mainExtents.map((e) => getParcelsByExtent({ extent: e })),
         );
@@ -360,21 +367,18 @@ const App = () => {
             parcel.setId(parcelId);
             if (!(parcelId in parcelsDict)) {
               parcelsDict[parcelId] = parcel;
-              const landUseObj = parcel.get('landUse') as
-                | { 'xlink:href': string }
-                | { nilReason: string };
-              let landUseCode: string = NullItem.code;
-              if ('xlink:href' in landUseObj) {
-                const landUseId = landUseObj['xlink:href'].replace(
-                  'services.cuzk.cz',
-                  'services.cuzk.gov.cz',
-                );
-                landUseCode = getItemCodeFromId({
-                  itemId: landUseId,
-                  codeList: landUseCodeList,
-                });
-              }
-              parcel.set('landUse', landUseCode, true);
+              assertIsDefined(codeLists.landUse);
+              updateCodeListProp({
+                feature: parcel,
+                codeList: codeLists.landUse,
+                propName: 'landUse',
+              });
+              assertIsDefined(codeLists.landType);
+              updateCodeListProp({
+                feature: parcel,
+                codeList: codeLists.landType,
+                propName: 'landType',
+              });
               const hasBuilding = !!parcel.get('building');
               parcel.set(ParcelHasBuildingPropName, hasBuilding, true);
               parcel.unset('referencePoint', true);

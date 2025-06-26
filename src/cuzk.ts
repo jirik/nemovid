@@ -229,3 +229,25 @@ export const getItemCodeFromId = (
   }
   return code;
 };
+
+export const updateCodeListProp = ({
+  feature,
+  propName,
+  codeList,
+}: { feature: Feature; propName: string; codeList: CodeList }) => {
+  const valueObj = feature.get(propName) as
+    | { 'xlink:href': string }
+    | { nilReason: string };
+  let itemCode: string = NullItem.code;
+  if ('xlink:href' in valueObj) {
+    const itemId = valueObj['xlink:href'].replace(
+      'services.cuzk.cz',
+      'services.cuzk.gov.cz',
+    );
+    itemCode = getItemCodeFromId({
+      itemId: itemId,
+      codeList,
+    });
+  }
+  feature.set(propName, itemCode, true);
+};
