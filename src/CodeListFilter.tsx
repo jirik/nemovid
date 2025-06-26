@@ -1,6 +1,7 @@
 import { Checkbox } from '@mantine/core';
 import { type ChangeEvent, useCallback } from 'react';
-import type { CodeList, CodeListItem } from './cuzk.ts';
+
+import type { CodeList, CodeListItem } from './codeList.ts';
 
 export type CodeListFilterProps = {
   list: CodeList;

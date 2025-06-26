@@ -6,6 +6,7 @@ import type {
 } from 'ol/format/GeoJSON';
 import WFS from 'ol/format/WFS';
 import { assertIsDefined } from './assert.ts';
+import { type CodeList, NullItem } from './codeList.ts';
 import settings from './settings.ts';
 import type {
   Parcel,
@@ -149,23 +150,6 @@ export const sortParcelByLabel = (a: Parcel, b: Parcel) => {
   return aParts[0] - bParts[0] || aParts[1] - bParts[1];
 };
 
-export type CodeListItem = {
-  id: string; // global
-  code: string; // local
-  label: string;
-};
-export type CodeList = {
-  id: string;
-  label: string;
-  values: Record<string, CodeListItem>;
-};
-
-export const NullItem = Object.freeze({
-  id: 'null',
-  code: 'null',
-  label: 'neznámá hodnota (null)',
-});
-
 type CodeListResponse = {
   codelist: {
     id: string;
@@ -215,7 +199,7 @@ export const fetchCodeList = async (url: string) => {
   return result;
 };
 
-export const getItemCodeFromId = (
+const getItemCodeFromId = (
   opts:
     | { itemId: string; codeListId: string }
     | { itemId: string; codeList: CodeList },
