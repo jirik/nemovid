@@ -1,5 +1,7 @@
 import logging
+import os
 import shutil
+import time
 import uuid
 from pathlib import Path
 
@@ -7,6 +9,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from common.cmd import run_cmd
 from common.files import file_path_to_static_url
 from common.settings import settings
 
@@ -43,6 +46,16 @@ class PostFileResponse(BaseModel):
     url: str
 
 
+def clean_up_old_files():
+    now = time.time()
+    for name in os.listdir(UPLOAD_DIRECTORY):
+        item_path = os.path.join(UPLOAD_DIRECTORY, name)
+        is_old = os.stat(item_path).st_mtime < now - 7 * 24 * 60 * 60
+        if is_old:
+            print(f"Deleting old file: {item_path}")
+            run_cmd(f"rm -rf {item_path}")
+
+
 @app.post(
     "/api/files/v1/files",
     summary="Upload a File",
@@ -58,6 +71,8 @@ async def post_file(file: UploadFile = File(...)):
     """
     Endpoint to upload a file.
     """
+    clean_up_old_files()
+
     unique_directory_path = None
 
     if file.size is None or file.size > MAX_FILE_SIZE_MB * 1024 * 1024:
