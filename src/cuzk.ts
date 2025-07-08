@@ -8,11 +8,13 @@ import WFS from 'ol/format/WFS';
 import { assertIsDefined } from './assert.ts';
 import { type CodeList, NullItem } from './codeList.ts';
 import settings from './settings.ts';
-import type {
-  Parcel,
-  SimpleOwner,
-  SimpleTitleDeed,
-  SimpleZoning,
+import {
+  type Parcel,
+  type SimpleOwner,
+  type SimpleTitleDeed,
+  type SimpleZoning,
+  UnknownSimpleOwner,
+  UnknownSimpleTitleDeed,
 } from './store.ts';
 import { fillTemplate } from './template.ts';
 
@@ -66,26 +68,56 @@ export const getTitleDeeds = async ({
     const parcelFeature = parcelFeatures.find(
       (f) => f.properties.par_id === parcelId,
     );
-    assertIsDefined(parcelFeature);
     const zoningId = getParcelZoning(parcel).id;
-    const owners = parseOwners(parcelFeature.properties.vlastnici, {
-      contextUrl: settings.parcelRestUrlTemplate,
-      allOwners: allOwners,
-    });
-    console.assert(owners.length > 0);
-    const titleDeedNumber = parcelFeature.properties.lv as number;
-    console.assert(typeof titleDeedNumber === 'number');
-    const titleDeedId = parcelFeature.properties.tel_id as number;
-    console.assert(typeof titleDeedId === 'number');
-    if (!(titleDeedId in allTitleDeeds)) {
-      allTitleDeeds[titleDeedId] = {
-        id: titleDeedId,
-        number: titleDeedNumber,
-        owners: owners.map((o) => o.id),
-        zoning: zoningId,
-        parcels: [],
-      };
+    let owners: SimpleOwner[] = [];
+    let titleDeedId: number;
+    if (parcelFeature) {
+      owners = parseOwners(parcelFeature.properties.vlastnici, {
+        allOwners: allOwners,
+      });
+      const titleDeedNumber = parcelFeature.properties.lv as number;
+      console.assert(typeof titleDeedNumber === 'number');
+      titleDeedId = parcelFeature.properties.tel_id as number;
+      console.assert(typeof titleDeedId === 'number');
+      if (!(titleDeedId in allTitleDeeds)) {
+        allTitleDeeds[titleDeedId] = {
+          id: titleDeedId,
+          number: titleDeedNumber,
+          owners: owners.map((o) => o.id),
+          zoning: zoningId,
+          parcels: [],
+        };
+      }
+    } else {
+      if (!(UnknownSimpleOwner.id in allOwners)) {
+        allOwners[UnknownSimpleOwner.id] = {
+          ...UnknownSimpleOwner,
+        };
+      }
+      owners = [allOwners[UnknownSimpleOwner.id]];
+      const unknownTitleDeeds = Object.values(allTitleDeeds).filter(
+        (td) => td.number === UnknownSimpleTitleDeed.number,
+      );
+
+      let titleDeed = unknownTitleDeeds.find((td) => td.zoning === zoningId);
+      if (!titleDeed) {
+        titleDeedId =
+          unknownTitleDeeds.length > 0
+            ? Math.min(...unknownTitleDeeds.map((td) => td.id)) - 1
+            : -1;
+        titleDeed = {
+          id: titleDeedId,
+          number: UnknownSimpleTitleDeed.number,
+          owners: owners.map((o) => o.id),
+          zoning: zoningId,
+          parcels: [],
+        };
+        allTitleDeeds[titleDeedId] = titleDeed;
+      } else {
+        titleDeedId = titleDeed.id;
+      }
     }
+    console.assert(owners.length > 0);
     allTitleDeeds[titleDeedId].parcels.push(parcelId);
   }
   return {
@@ -96,24 +128,20 @@ export const getTitleDeeds = async ({
 
 const parseOwners = (
   str: string,
-  {
-    contextUrl,
-    allOwners,
-  }: { contextUrl: string; allOwners: Record<string, SimpleOwner> },
+  { allOwners }: { allOwners: Record<string, SimpleOwner> },
 ): SimpleOwner[] => {
   const matches = [...str.matchAll(/href="(?<url>.*?)".*?>(?<label>.*?)<\//g)];
   return matches.map((match) => {
     const ownerLink = match.groups as Pick<SimpleOwner, 'label'> & {
       url: string;
     };
-    const url = new URL(ownerLink.url, contextUrl);
+    const url = new URL(ownerLink.url, 'https://example.com');
     const id = url.searchParams.get('ID');
     assertIsDefined(id);
     if (!(id in allOwners)) {
       allOwners[id] = {
         id: Number.parseInt(id),
         label: ownerLink.label,
-        titleDeeds: [],
       };
     }
     const result = allOwners[id];

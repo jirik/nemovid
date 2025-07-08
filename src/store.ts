@@ -160,6 +160,13 @@ export type SimpleTitleDeed = Omit<
   owners: number[];
 };
 
+export const UnknownSimpleTitleDeed: Omit<
+  SimpleTitleDeed,
+  'zoning' | 'parcels' | 'owners' | 'id'
+> = {
+  number: -1,
+};
+
 export type SimpleParcel = Omit<
   Parcel,
   'zoning' | 'titleDeed' | 'landUse' | 'landType'
@@ -170,8 +177,11 @@ export type SimpleParcel = Omit<
   landType: string;
 };
 
-export type SimpleOwner = Omit<Owner, 'titleDeeds'> & {
-  titleDeeds: number[];
+export type SimpleOwner = Omit<Owner, 'titleDeeds'>;
+
+export const UnknownSimpleOwner: Omit<SimpleOwner, 'titleDeeds'> = {
+  id: -1,
+  label: 'Neznámý vlastník (pravděpodobně nedávno změněná parcela)',
 };
 
 export const getFilteredParcels = createAppSelector(

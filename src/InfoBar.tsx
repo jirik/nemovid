@@ -48,7 +48,7 @@ const ZoningSection = ({ zoning }: { zoning: Zoning }) => {
           let titleDeedJsx: ReactNode | null = null;
           if (titleDeed != null) {
             titleDeedJsx = `, LV ${titleDeed.number}`;
-            if (settings.titleDeedInfoUrlTemplate != null) {
+            if (settings.titleDeedInfoUrlTemplate != null && titleDeed.id > 0) {
               const titleDeedId = titleDeed.id;
               const titleDeedUrl = fillTemplate(
                 settings.titleDeedInfoUrlTemplate,
@@ -76,7 +76,10 @@ const ZoningSection = ({ zoning }: { zoning: Zoning }) => {
                     ', ',
                     titleDeed.owners.map((owner, idx) => {
                       let ownerJsx: ReactNode = owner.label;
-                      if (settings.ownerInfoUrlTemplate != null) {
+                      if (
+                        settings.ownerInfoUrlTemplate != null &&
+                        owner.id > 0
+                      ) {
                         const ownerUrl = fillTemplate(
                           settings.ownerInfoUrlTemplate,
                           { ownerId: owner.id },
