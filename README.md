@@ -1,29 +1,52 @@
-# Rsbuild project
+# Statkar
 
-## Setup
+Urban planning tool focused on finding parcels that intersects with planned construction (e.g. roads, buildings, etc.).
 
-Install the dependencies:
+Following input files are supported:
+- GeoJSON with polygon features in S-JTSK (EPSG:5514)
+- DXF in S-JTSK (EPSG:5514), only polygon features are considered
 
+## Requirements
+- linux
+- [docker](https://www.docker.com/)
+- [git](https://git-scm.com/)
+- [nvm](https://github.com/nvm-sh/nvm)
+
+## Installation
 ```bash
-npm install
+# get the code
+git clone git@github.com:jirik/statkar.git
+cd statkar
+
+# use default settings, or adjust it to your own needs
+cp .env.default .env
+
+# build backend docker images
+make files-build
+make ogr2ogr-build
+make qgis-build
+
+# start server containers
+make server-up
+
+# install correct Node.js version and Node.js dependencies
+nvm install
+npm ci
+
+# generate typescript models from OpenAPI
+make generate-typescript
+
+# build client
+npm run build
 ```
 
-## Get started
+## Run
+```bash
+make server-up
+npm run preview
+```
 
-Start the dev server:
-
+## Development
 ```bash
 make dev
-```
-
-Build the app for production:
-
-```bash
-npm build
-```
-
-Preview the production build locally:
-
-```bash
-npm preview
 ```

@@ -275,11 +275,22 @@ const InfoBar = () => {
         <div className={styles.section}>
           <h3>Vítejte</h3>
           <p>
-            Začněte tím, že soubor *.geojson přetáhnete nad mapu (drag & drop).
+            Aplikace najde parcely, které mají průnik s plánovanou výstavbou.
+            Plánovanou výstavbu lze nahrát v jednom z následujících formátů:
           </p>
+          <ul>
+            <li>
+              soubor DXF v souřadnicovém systému S-JTSK (EPSG:5514); nahrány
+              budou pouze plošné prvky
+            </li>
+            <li>
+              soubor GeoJSON s plošnými prvky (polygony, multipolygony) v
+              souřadnicovém systému S-JTSK (EPSG:5514)
+            </li>
+          </ul>
           <p>
-            Aplikace podporuje soubory *.geojson s plošnými prvky (polygony,
-            multipolygony) v souřadnicovém systému S-JTSK (EPSG:5514).
+            Začněte tím, že soubor s plánovanou výstavbou přetáhnete nad mapu
+            (drag & drop).
           </p>
         </div>
       ) : (
