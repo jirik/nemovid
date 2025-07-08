@@ -1,6 +1,7 @@
 import deepEqual from 'deep-equal';
 import type JstsGeometry from 'jsts/org/locationtech/jts/geom/Geometry.js';
 import GeometryFactory from 'jsts/org/locationtech/jts/geom/GeometryFactory.js';
+import type IntersectionMatrix from 'jsts/org/locationtech/jts/geom/IntersectionMatrix.js';
 import JstsPolygon from 'jsts/org/locationtech/jts/geom/Polygon.js';
 import OL3Parser from 'jsts/org/locationtech/jts/io/OL3Parser.js';
 import JstsBufferOp from 'jsts/org/locationtech/jts/operation/buffer/BufferOp.js';
@@ -222,7 +223,11 @@ export const getIntersectedParcels = ({
       }
       const featureJstsGeom = featureJstsGeoms[featureId];
       try {
-        return JstsRelatedOp.intersects(parcelJstsGeom, featureJstsGeom);
+        const matrix: IntersectionMatrix = JstsRelatedOp.relate(
+          parcelJstsGeom,
+          featureJstsGeom,
+        );
+        return matrix.matches('T********'); // area intersects
       } catch (e) {
         console.error(
           `Some problem when intersecting ${parcelId} x ${featureId}`,
