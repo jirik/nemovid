@@ -11,4 +11,4 @@ WORKDIR /app
 RUN chmod +777 /app
 ENV PYTHONPATH="${PYTHONPATH}:/app"
 RUN python3 -m venv --system-site-packages .venv
-RUN source .venv/bin/activate && pip install "fastapi[standard]" pydantic_settings ruff pyright[nodejs]
+RUN source .venv/bin/activate && pip install "fastapi[standard-no-fastapi-cloud-cli]" pydantic_settings ruff pyright[nodejs]
