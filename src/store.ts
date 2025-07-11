@@ -36,6 +36,7 @@ export type ParcelFilters = {
 export interface State {
   fileName: string | null;
   constrnFeatures: Feature[] | null;
+  coverFeatures: Record<string, Feature> | null;
   parcels: Record<string, SimpleParcel> | null;
   parcelFeatures: Record<string, Feature> | null;
   zonings: Record<string, SimpleZoning> | null;
@@ -64,6 +65,7 @@ export const defaultFilters: ParcelFilters = {
 const initialState: State = {
   fileName: null,
   constrnFeatures: null,
+  coverFeatures: null,
   parcels: null,
   parcelFeatures: null,
   zonings: null,
@@ -341,13 +343,20 @@ export const getOwners = createAppSelector([getZonings], (zonings) => {
   return Object.values(ownersDict);
 });
 
+export const getAreParcelAreasLoaded = createAppSelector(
+  [(state) => state.parcelAreasTimestamp],
+  (parcelAreasTimestamp) => {
+    return parcelAreasTimestamp != null;
+  },
+);
+
 export const getParcelStats = createAppSelector(
-  [(state) => state.parcelFeatures, (state) => state.parcelAreasTimestamp],
-  (parcels, parcelAreasTimestamp): ParcelStats => {
+  [(state) => state.parcelFeatures, getAreParcelAreasLoaded],
+  (parcels, areParcelAreasLoaded): ParcelStats => {
     let result: ParcelStats = {
       maxCoveredAreaM2: null,
     };
-    if (parcelAreasTimestamp != null) {
+    if (areParcelAreasLoaded) {
       result = {
         maxCoveredAreaM2: 0,
       };

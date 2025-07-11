@@ -1,8 +1,12 @@
 import { GeoJSON } from 'ol/format';
-import type { GeoJSONFeatureCollection } from 'ol/format/GeoJSON';
+import type {
+  GeoJSONFeatureCollection,
+  GeoJSONGeometry,
+} from 'ol/format/GeoJSON';
 import VectorSource from 'ol/source/Vector';
 import {
   type ParcelAreas,
+  ParcelCoverPropName,
   ParcelCoveredAreaM2PropName,
   ParcelCoveredAreaPercPropName,
   getIntersectedParcels,
@@ -75,6 +79,7 @@ self.onmessage = async (event) => {
       prev[id] = {
         coveredAreaM2: parcel.get(ParcelCoveredAreaM2PropName) as number,
         coveredAreaPerc: parcel.get(ParcelCoveredAreaPercPropName) as number,
+        cover: parcel.get(ParcelCoverPropName) as GeoJSONGeometry,
       };
       return prev;
     },

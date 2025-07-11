@@ -3,6 +3,7 @@ import type JstsGeometry from 'jsts/org/locationtech/jts/geom/Geometry.js';
 import GeometryFactory from 'jsts/org/locationtech/jts/geom/GeometryFactory.js';
 import type IntersectionMatrix from 'jsts/org/locationtech/jts/geom/IntersectionMatrix.js';
 import JstsPolygon from 'jsts/org/locationtech/jts/geom/Polygon.js';
+import GeoJSONWriter from 'jsts/org/locationtech/jts/io/GeoJSONWriter.js';
 import OL3Parser from 'jsts/org/locationtech/jts/io/OL3Parser.js';
 import JstsBufferOp from 'jsts/org/locationtech/jts/operation/buffer/BufferOp.js';
 import JstsOverlayOp from 'jsts/org/locationtech/jts/operation/overlay/OverlayOp.js';
@@ -11,6 +12,7 @@ import JstsIsValidOp from 'jsts/org/locationtech/jts/operation/valid/IsValidOp.j
 import { Feature } from 'ol';
 import type { Extent } from 'ol/extent';
 import * as olExtent from 'ol/extent';
+import type { GeoJSONGeometry } from 'ol/format/GeoJSON';
 import WMTSCapabilities from 'ol/format/WMTSCapabilities';
 import {
   GeometryCollection,
@@ -250,6 +252,7 @@ export function* setParcelIntersections({
 }): Generator<number> {
   const geometryFactory = new GeometryFactory();
   const parser = new OL3Parser(geometryFactory, undefined);
+  const geojsonWriter = new GeoJSONWriter();
   parser.inject(
     Point,
     LineString,
@@ -330,7 +333,9 @@ export function* setParcelIntersections({
     parcel.set(ParcelOfficialAreaM2PropName, officialArea, true);
     parcel.set(ParcelCoveredAreaM2PropName, coveredArea, true);
     parcel.set(ParcelCoveredAreaPercPropName, coveredAreaRatio, true);
-
+    const coverGeojson: GeoJSONGeometry =
+      geojsonWriter.write(parcelIntersection);
+    parcel.set(ParcelCoverPropName, coverGeojson, true);
     yield parcelIdx + 1;
   }
 }
@@ -338,11 +343,13 @@ export function* setParcelIntersections({
 export const ParcelOfficialAreaM2PropName = 'statkarParcelAreaM2';
 export const ParcelCoveredAreaM2PropName = 'statkarParcelCoverM2';
 export const ParcelCoveredAreaPercPropName = 'statkarParcelCoverPerc';
+export const ParcelCoverPropName = 'statkarParcelCover';
 export const ParcelHasBuildingPropName = 'building';
 
 export type ParcelAreas = {
   coveredAreaM2: number;
   coveredAreaPerc: number;
+  cover: GeoJSONGeometry;
 };
 
 export const filterParcels = ({

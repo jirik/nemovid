@@ -74,7 +74,7 @@ register(proj4);
 
 const App = () => {
   const extentFeatures = useAppStore(getMainExtentFeatures);
-  const areFeaturesLoaded = useAppStore(getAreConstrnFeaturesLoaded);
+  const areConstrnFeaturesLoaded = useAppStore(getAreConstrnFeaturesLoaded);
   const mainExtents = useAppStore(getMainExtents);
   const parcelGlVars = useAppStore(getParcelGlVars);
   const parcelGlVarsRef = useRef<{ [varName: string]: number | boolean }>(
@@ -85,9 +85,11 @@ const App = () => {
   const constrnFeatures = useAppStore((state) => state.constrnFeatures);
   const highlightedConstrnId = useAppStore((state) => state.highlightedConstrn);
   const parcels = useAppStore((state) => state.parcelFeatures);
+  const covers = useAppStore((state) => state.coverFeatures);
   const mapRef = useRef<OlMap | null>(null);
   const constrnLayerRef = useRef<WebGLVectorLayer | null>(null);
   const constrnExtentLayerRef = useRef<VectorLayer | null>(null);
+  const coverLayerRef = useRef<VectorLayer | null>(null);
   const parcelLayerRef = useRef<WebGLVectorLayer | null>(null);
   const codeListsRef = useRef<State['codeLists']>(null);
 
@@ -161,6 +163,16 @@ const App = () => {
       });
       constrnExtentLayerRef.current = constrnExtentLayer;
 
+      const coverLayer = new VectorLayer({
+        source: new VectorSource(),
+        style: {
+          'stroke-color': '#00aa00',
+          'stroke-width': 1,
+          'fill-color': 'rgba(00,200,00,0.4)',
+        },
+      });
+      coverLayerRef.current = coverLayer;
+
       const map = new OlMap({
         target: 'map',
         layers: [],
@@ -192,6 +204,7 @@ const App = () => {
       map.addLayer(parcelLayer);
       map.addLayer(constrnExtentLayer);
       map.addLayer(constrnLayer);
+      map.addLayer(coverLayer);
 
       map.getView().on('change:resolution', (evt) => {
         const view = evt.target as View;
@@ -284,21 +297,26 @@ const App = () => {
     assertIsDefined(constrnLayerRef.current);
     assertIsDefined(constrnExtentLayerRef.current);
     assertIsDefined(parcelLayerRef.current);
+    assertIsDefined(coverLayerRef.current);
     const map = mapRef.current;
     const constrnLayer = constrnLayerRef.current;
     const constrnExtentLayer = constrnExtentLayerRef.current;
     const parcelLayer = parcelLayerRef.current;
+    const coverLayer = coverLayerRef.current;
     const constrnSource = constrnLayer.getSource();
     assertIsDefined(constrnSource);
     const constrnExtentSource = constrnExtentLayer.getSource();
     assertIsDefined(constrnExtentSource);
     const parcelSource = parcelLayer.getSource();
     assertIsDefined(parcelSource);
+    const coverSource = coverLayer.getSource();
+    assertIsDefined(coverSource);
 
     // clear features
     constrnSource.clear(true);
     constrnExtentSource.clear(true);
     parcelSource.clear();
+    coverSource.clear();
     map.renderSync();
     if (!constrnFeatures || !extentFeatures) {
       return;
@@ -327,7 +345,7 @@ const App = () => {
 
   useEffect(() => {
     (async () => {
-      if (!areFeaturesLoaded) {
+      if (!areConstrnFeaturesLoaded) {
         return;
       }
       assertIsDefined(constrnLayerRef.current);
@@ -424,7 +442,7 @@ const App = () => {
         parcelAreasLoaded({ parcelAreas: {} });
       }
     })();
-  }, [areFeaturesLoaded, mainExtents]);
+  }, [areConstrnFeaturesLoaded, mainExtents]);
 
   useEffect(() => {
     assertIsDefined(parcelLayerRef.current);
@@ -433,6 +451,14 @@ const App = () => {
     assertIsDefined(parcelSource);
     parcelSource.addFeatures(Object.values(parcels || {}));
   }, [parcels]);
+
+  useEffect(() => {
+    assertIsDefined(coverLayerRef.current);
+    const coverLayer = coverLayerRef.current;
+    const coverSource = coverLayer.getSource();
+    assertIsDefined(coverSource);
+    coverSource.addFeatures(Object.values(covers || {}));
+  }, [covers]);
 
   useEffect(() => {
     assertIsDefined(mapRef.current);

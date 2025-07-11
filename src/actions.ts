@@ -1,5 +1,8 @@
 import merge from 'lodash.merge';
-import type { Feature } from 'ol';
+import { Feature } from 'ol';
+import GeoJSON from 'ol/format/GeoJSON';
+import MultiPolygon from 'ol/geom/MultiPolygon';
+import Polygon from 'ol/geom/Polygon';
 import { assertIsDefined } from './assert.ts';
 import { getFilter } from './codeList.ts';
 import { getParcelLabel, getParcelZoning } from './cuzk.ts';
@@ -31,6 +34,7 @@ export const fileOpened = ({
   set((state) => {
     state.fileName = name;
     state.constrnFeatures = features;
+    state.coverFeatures = null;
     state.parcels = null;
     state.parcelFeatures = null;
     state.zonings = null;
@@ -97,11 +101,32 @@ export const parcelAreasLoaded = ({
 }: { parcelAreas: Record<string, ParcelAreas> }) =>
   set((state) => {
     assertIsDefined(state.parcelFeatures);
+    const format = new GeoJSON();
+    const coverFeatures: { [id: string]: Feature } = {};
     for (const [parcelId, areas] of Object.entries(parcelAreas)) {
       const parcel = state.parcelFeatures[parcelId];
       parcel.set(ParcelCoveredAreaM2PropName, areas.coveredAreaM2);
       parcel.set(ParcelCoveredAreaPercPropName, areas.coveredAreaPerc);
+      const geom = format.readGeometry(areas.cover);
+      let polygons: Polygon[] = [];
+      if (geom instanceof Polygon) {
+        polygons = [geom];
+      } else if (geom instanceof MultiPolygon) {
+        polygons = geom.getPolygons();
+      } else {
+        console.error('Unsupported geometry', geom);
+      }
+      for (const polygon of polygons) {
+        const coverId = `${Object.values(coverFeatures).length + 1}`;
+        const coverFeature = new Feature({
+          id: coverId,
+          geometry: polygon,
+          parcelId,
+        });
+        coverFeatures[coverId] = coverFeature;
+      }
     }
+    state.coverFeatures = coverFeatures;
     state.parcelAreasTimestamp = Date.now();
     // @ts-ignore
     const stats = getParcelStats(state);
