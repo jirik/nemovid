@@ -35,14 +35,14 @@ export type ParcelFilters = {
 
 export interface State {
   fileName: string | null;
-  features: Feature[] | null;
+  constrnFeatures: Feature[] | null;
   parcels: Record<string, SimpleParcel> | null;
   parcelFeatures: Record<string, Feature> | null;
   zonings: Record<string, SimpleZoning> | null;
   titleDeeds: Record<string, SimpleTitleDeed> | null;
   owners: Record<string, SimpleOwner> | null;
   highlightedParcel: number | null;
-  highlightedFeature: number | null;
+  highlightedConstrn: number | null;
   parcelAreasTimestamp: number | null;
   parcelInfosTimestamp: number | null;
   processedParcels: number | null;
@@ -63,7 +63,7 @@ export const defaultFilters: ParcelFilters = {
 
 const initialState: State = {
   fileName: null,
-  features: null,
+  constrnFeatures: null,
   parcels: null,
   parcelFeatures: null,
   zonings: null,
@@ -71,7 +71,7 @@ const initialState: State = {
   owners: null,
   processedParcels: null,
   highlightedParcel: null,
-  highlightedFeature: null,
+  highlightedConstrn: null,
   parcelAreasTimestamp: null,
   parcelInfosTimestamp: null,
   parcelFilters: structuredClone(defaultFilters),
@@ -92,7 +92,7 @@ export const useAppStore = create<State & Setter>()(
 const createAppSelector = createSelector.withTypes<State>();
 
 export const getMainExtents = createAppSelector(
-  [(state) => state.features],
+  [(state) => state.constrnFeatures],
   (features) => {
     if (!features) {
       return null;
@@ -382,8 +382,8 @@ export const getIsFileOpened = createAppSelector(
   },
 );
 
-export const getAreFeaturesLoaded = createAppSelector(
-  [(state) => state.features],
+export const getAreConstrnFeaturesLoaded = createAppSelector(
+  [(state) => state.constrnFeatures],
   (features): boolean => {
     return features != null;
   },

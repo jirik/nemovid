@@ -149,42 +149,42 @@ export const assertMinExtentRadius = ({
   return extent;
 };
 
-export const getParcelsByFeatureExtent = ({
+export const getParcelsByConstrnExtent = ({
   parcels,
-  featureSource,
+  constrnSource,
 }: {
   parcels: Feature[];
-  featureSource: VectorSource;
+  constrnSource: VectorSource;
 }): {
   parcelsByExtent: Feature[];
-  featuresByParcel: Record<string, Feature[]>;
+  constrnsByParcel: Record<string, Feature[]>;
 } => {
-  const featuresByParcel: Record<string, Feature[]> = {};
+  const constrnsByParcel: Record<string, Feature[]> = {};
 
   const parcelsByExtent = parcels.filter((parcel) => {
     const parcelGeom = parcel.getGeometry();
     assertIsDefined(parcelGeom);
     const parcelId: number = parcel.getId() as number;
-    const foundFeatures = featureSource.getFeaturesInExtent(
+    const foundConstrns = constrnSource.getFeaturesInExtent(
       parcelGeom.getExtent(),
     );
-    if (foundFeatures.length > 0) {
-      featuresByParcel[parcelId] = foundFeatures;
+    if (foundConstrns.length > 0) {
+      constrnsByParcel[parcelId] = foundConstrns;
     }
-    return foundFeatures.length > 0;
+    return foundConstrns.length > 0;
   });
   return {
     parcelsByExtent,
-    featuresByParcel,
+    constrnsByParcel,
   };
 };
 
 export const getIntersectedParcels = ({
   parcelsByExtent,
-  featuresByParcel,
+  constrnsByParcel,
 }: {
   parcelsByExtent: Feature[];
-  featuresByParcel: Record<string, Feature[]>;
+  constrnsByParcel: Record<string, Feature[]>;
 }): Feature[] => {
   const geometryFactory = new GeometryFactory();
   const parser = new OL3Parser(geometryFactory, undefined);
@@ -199,38 +199,38 @@ export const getIntersectedParcels = ({
     GeometryCollection,
   );
 
-  const featureJstsGeoms: Record<string, JstsGeometry> = {};
+  const constrnJstsGeoms: Record<string, JstsGeometry> = {};
 
   const parcelsByGeom = parcelsByExtent.filter((parcel) => {
     const parcelJstsGeom = parser.read(parcel.getGeometry());
     console.assert(parcelJstsGeom instanceof JstsPolygon);
     const parcelId: number = parcel.getId() as number;
-    const parcelFeaturesByExtent = featuresByParcel[parcelId];
-    const intersects = parcelFeaturesByExtent.some((feature) => {
-      const featureId = feature.getId() as number;
-      if (!(featureId in featureJstsGeoms)) {
-        const geom = parser.read(feature.getGeometry());
+    const parcelConstrnsByExtent = constrnsByParcel[parcelId];
+    const intersects = parcelConstrnsByExtent.some((constrn) => {
+      const constrnId = constrn.getId() as number;
+      if (!(constrnId in constrnJstsGeoms)) {
+        const geom = parser.read(constrn.getGeometry());
         const geomIsValid = JstsIsValidOp.isValid(geom);
         console.assert(
           geomIsValid,
           'Expected valid geometry, but found',
           geom,
-          feature,
+          constrn,
         );
-        featureJstsGeoms[featureId] = geomIsValid
+        constrnJstsGeoms[constrnId] = geomIsValid
           ? geom
           : JstsBufferOp.bufferOp(geom, 0);
       }
-      const featureJstsGeom = featureJstsGeoms[featureId];
+      const constrnJstsGeom = constrnJstsGeoms[constrnId];
       try {
         const matrix: IntersectionMatrix = JstsRelatedOp.relate(
           parcelJstsGeom,
-          featureJstsGeom,
+          constrnJstsGeom,
         );
         return matrix.matches('T********'); // area intersects
       } catch (e) {
         console.error(
-          `Some problem when intersecting ${parcelId} x ${featureId}`,
+          `Some problem when intersecting ${parcelId} x ${constrnId}`,
         );
         console.error(e);
       }
@@ -243,10 +243,10 @@ export const getIntersectedParcels = ({
 
 export function* setParcelIntersections({
   parcels,
-  featuresByParcel,
+  constrnsByParcel,
 }: {
   parcels: Feature[];
-  featuresByParcel: Record<string, Feature[]>;
+  constrnsByParcel: Record<string, Feature[]>;
 }): Generator<number> {
   const geometryFactory = new GeometryFactory();
   const parser = new OL3Parser(geometryFactory, undefined);
@@ -261,43 +261,43 @@ export function* setParcelIntersections({
     GeometryCollection,
   );
 
-  const featuresJstsGeoms: Record<string, JstsGeometry> = {};
+  const constrnsJstsGeoms: Record<string, JstsGeometry> = {};
 
   for (const [parcelIdx, parcel] of parcels.entries()) {
     const parcelJstsGeom = parser.read(parcel.getGeometry());
     console.assert(parcelJstsGeom instanceof JstsPolygon);
     const parcelId: number = parcel.getId() as number;
-    const parcelFeaturesByExtent = featuresByParcel[parcelId];
+    const parcelConstrnsByExtent = constrnsByParcel[parcelId];
     const parcelIntersections: JstsGeometry[] = [];
-    for (const feature of parcelFeaturesByExtent) {
-      const featureId = feature.getId() as number;
-      if (!(featureId in featuresJstsGeoms)) {
-        const geom = parser.read(feature.getGeometry());
+    for (const constrn of parcelConstrnsByExtent) {
+      const constrnId = constrn.getId() as number;
+      if (!(constrnId in constrnsJstsGeoms)) {
+        const geom = parser.read(constrn.getGeometry());
         const geomIsValid = JstsIsValidOp.isValid(geom);
         console.assert(
           geomIsValid,
           'Expected valid geometry, but found',
           geom,
-          feature,
+          constrn,
         );
-        featuresJstsGeoms[featureId] = geomIsValid
+        constrnsJstsGeoms[constrnId] = geomIsValid
           ? geom
           : JstsBufferOp.bufferOp(geom, 0);
       }
-      const featureJstsGeom = featuresJstsGeoms[featureId];
+      const constrnJstsGeom = constrnsJstsGeoms[constrnId];
       try {
         const intersects: boolean = JstsRelatedOp.intersects(
           parcelJstsGeom,
-          featureJstsGeom,
+          constrnJstsGeom,
         );
         if (intersects) {
           parcelIntersections.push(
-            JstsOverlayOp.intersection(parcelJstsGeom, featureJstsGeom),
+            JstsOverlayOp.intersection(parcelJstsGeom, constrnJstsGeom),
           );
         }
       } catch (e) {
         console.error(
-          `Some problem when intersecting ${parcelId} x ${featureId}`,
+          `Some problem when intersecting ${parcelId} x ${constrnId}`,
         );
         console.error(e);
       }

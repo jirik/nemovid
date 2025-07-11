@@ -30,7 +30,7 @@ export const fileOpened = ({
 }: { name: string; features: Feature[] | null }) =>
   set((state) => {
     state.fileName = name;
-    state.features = features;
+    state.constrnFeatures = features;
     state.parcels = null;
     state.parcelFeatures = null;
     state.zonings = null;
@@ -113,17 +113,17 @@ export const parcelAreasLoaded = ({
 
 export const mapPointerMove = ({
   highlightedParcel,
-  highlightedFeature,
+  highlightedConstrn,
 }: {
   highlightedParcel?: Feature | null;
-  highlightedFeature?: Feature | null;
+  highlightedConstrn?: Feature | null;
 }) =>
   set((state) => {
     state.highlightedParcel = highlightedParcel
       ? (highlightedParcel.getId() as number)
       : null;
-    const featureFid = highlightedFeature?.getId();
-    state.highlightedFeature =
+    const featureFid = highlightedConstrn?.getId();
+    state.highlightedConstrn =
       typeof featureFid === 'number' ? featureFid : null;
   });
 

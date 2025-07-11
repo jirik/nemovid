@@ -6,12 +6,12 @@ import {
   ParcelCoveredAreaM2PropName,
   ParcelCoveredAreaPercPropName,
   getIntersectedParcels,
-  getParcelsByFeatureExtent,
+  getParcelsByConstrnExtent,
   setParcelIntersections,
 } from './olutil.ts';
 
 export type IncomingMessage = {
-  features: GeoJSONFeatureCollection;
+  constrns: GeoJSONFeatureCollection;
   parcels: GeoJSONFeatureCollection;
 };
 
@@ -32,20 +32,20 @@ export type OutgoingMessage =
 self.onmessage = async (event) => {
   const data: IncomingMessage = event.data;
   const format = new GeoJSON();
-  const features = format.readFeatures(data.features);
+  const constrns = format.readFeatures(data.constrns);
   const parcels = format.readFeatures(data.parcels);
 
-  const featureSource = new VectorSource({
-    features,
+  const constrnSource = new VectorSource({
+    features: constrns,
   });
 
-  const { parcelsByExtent, featuresByParcel } = getParcelsByFeatureExtent({
+  const { parcelsByExtent, constrnsByParcel } = getParcelsByConstrnExtent({
     parcels,
-    featureSource,
+    constrnSource: constrnSource,
   });
   const coveredParcels = getIntersectedParcels({
     parcelsByExtent,
-    featuresByParcel,
+    constrnsByParcel,
   });
 
   const coveredParcelsGeojson: GeoJSONFeatureCollection =
@@ -58,7 +58,7 @@ self.onmessage = async (event) => {
 
   const progress = setParcelIntersections({
     parcels: coveredParcels,
-    featuresByParcel,
+    constrnsByParcel: constrnsByParcel,
   });
   const numParcels = coveredParcels.length;
   let processedParcels = 0;

@@ -53,7 +53,7 @@ import { createClient as createQgisClient } from './server/qgis/client';
 import settings from './settings.ts';
 import {
   type State,
-  getAreFeaturesLoaded,
+  getAreConstrnFeaturesLoaded,
   getMainExtentFeatures,
   getMainExtents,
   getParcelGlStyle,
@@ -74,7 +74,7 @@ register(proj4);
 
 const App = () => {
   const extentFeatures = useAppStore(getMainExtentFeatures);
-  const areFeaturesLoaded = useAppStore(getAreFeaturesLoaded);
+  const areFeaturesLoaded = useAppStore(getAreConstrnFeaturesLoaded);
   const mainExtents = useAppStore(getMainExtents);
   const parcelGlVars = useAppStore(getParcelGlVars);
   const parcelGlVarsRef = useRef<{ [varName: string]: number | boolean }>(
@@ -82,12 +82,12 @@ const App = () => {
   );
   const parcelGlStyle = useAppStore(getParcelGlStyle);
   const parcelGlStyleRef = useRef<FlatStyleLike>(parcelGlStyle);
-  const features = useAppStore((state) => state.features);
-  const highlightedFeatureId = useAppStore((state) => state.highlightedFeature);
+  const constrnFeatures = useAppStore((state) => state.constrnFeatures);
+  const highlightedConstrnId = useAppStore((state) => state.highlightedConstrn);
   const parcels = useAppStore((state) => state.parcelFeatures);
   const mapRef = useRef<OlMap | null>(null);
-  const vectorLayerRef = useRef<WebGLVectorLayer | null>(null);
-  const vectorExtentLayerRef = useRef<VectorLayer | null>(null);
+  const constrnLayerRef = useRef<WebGLVectorLayer | null>(null);
+  const constrnExtentLayerRef = useRef<VectorLayer | null>(null);
   const parcelLayerRef = useRef<WebGLVectorLayer | null>(null);
   const codeListsRef = useRef<State['codeLists']>(null);
 
@@ -100,15 +100,15 @@ const App = () => {
         return;
       }
 
-      const featureStrokeColor = '#c513cd';
+      const constrnStrokeColor = '#c513cd';
 
-      const vectorLayer = new WebGLVectorLayer({
+      const constrnLayer = new WebGLVectorLayer({
         source: new VectorSource(),
         style: [
           {
             filter: ['==', ['var', 'highlightedId'], ['id']],
             style: {
-              'stroke-color': featureStrokeColor,
+              'stroke-color': constrnStrokeColor,
               'stroke-width': 3,
               'fill-color': 'rgba(255,255,255,0.4)',
             },
@@ -116,7 +116,7 @@ const App = () => {
           {
             else: true,
             style: {
-              'stroke-color': featureStrokeColor,
+              'stroke-color': constrnStrokeColor,
               'stroke-width': 1,
               'fill-color': 'rgba(255,255,255,0.4)',
             },
@@ -126,7 +126,7 @@ const App = () => {
           highlightedId: -1,
         },
       });
-      vectorLayerRef.current = vectorLayer;
+      constrnLayerRef.current = constrnLayer;
 
       const extentStyle = [
         new Style({
@@ -138,7 +138,7 @@ const App = () => {
         }),
         new Style({
           stroke: new Stroke({
-            color: featureStrokeColor,
+            color: constrnStrokeColor,
             width: 2,
             lineDash: [5, 5],
           }),
@@ -153,13 +153,13 @@ const App = () => {
       });
       parcelLayerRef.current = parcelLayer;
 
-      const vectorExtentLayer = new VectorLayer({
+      const constrnExtentLayer = new VectorLayer({
         source: new VectorSource(),
         style: extentStyle,
         updateWhileAnimating: true,
         updateWhileInteracting: true,
       });
-      vectorExtentLayerRef.current = vectorExtentLayer;
+      constrnExtentLayerRef.current = constrnExtentLayer;
 
       const map = new OlMap({
         target: 'map',
@@ -190,8 +190,8 @@ const App = () => {
       map.addLayer(tileLayer);
       map.addLayer(tileLayer2);
       map.addLayer(parcelLayer);
-      map.addLayer(vectorExtentLayer);
-      map.addLayer(vectorLayer);
+      map.addLayer(constrnExtentLayer);
+      map.addLayer(constrnLayer);
 
       map.getView().on('change:resolution', (evt) => {
         const view = evt.target as View;
@@ -222,8 +222,8 @@ const App = () => {
 
   useEffect(() => {
     assertIsDefined(mapRef.current);
-    assertIsDefined(vectorLayerRef.current);
-    assertIsDefined(vectorExtentLayerRef.current);
+    assertIsDefined(constrnLayerRef.current);
+    assertIsDefined(constrnExtentLayerRef.current);
     const map = mapRef.current;
     const dnd = new DragAndDrop();
     dnd.on('addfile', async (event) => {
@@ -281,39 +281,39 @@ const App = () => {
 
   useEffect(() => {
     assertIsDefined(mapRef.current);
-    assertIsDefined(vectorLayerRef.current);
-    assertIsDefined(vectorExtentLayerRef.current);
+    assertIsDefined(constrnLayerRef.current);
+    assertIsDefined(constrnExtentLayerRef.current);
     assertIsDefined(parcelLayerRef.current);
     const map = mapRef.current;
-    const vectorLayer = vectorLayerRef.current;
-    const vectorExtentLayer = vectorExtentLayerRef.current;
+    const constrnLayer = constrnLayerRef.current;
+    const constrnExtentLayer = constrnExtentLayerRef.current;
     const parcelLayer = parcelLayerRef.current;
-    const vectorSource = vectorLayer.getSource();
-    assertIsDefined(vectorSource);
-    const vectorExtentSource = vectorExtentLayer.getSource();
-    assertIsDefined(vectorExtentSource);
+    const constrnSource = constrnLayer.getSource();
+    assertIsDefined(constrnSource);
+    const constrnExtentSource = constrnExtentLayer.getSource();
+    assertIsDefined(constrnExtentSource);
     const parcelSource = parcelLayer.getSource();
     assertIsDefined(parcelSource);
 
     // clear features
-    vectorSource.clear(true);
-    vectorExtentSource.clear(true);
+    constrnSource.clear(true);
+    constrnExtentSource.clear(true);
     parcelSource.clear();
     map.renderSync();
-    if (!features || !extentFeatures) {
+    if (!constrnFeatures || !extentFeatures) {
       return;
     }
 
     // show features
-    vectorSource.addFeatures(features);
+    constrnSource.addFeatures(constrnFeatures);
 
     // show feature extents
-    vectorExtentSource.addFeatures(extentFeatures);
+    constrnExtentSource.addFeatures(extentFeatures);
 
     // zoom
-    const vectorExtent = vectorExtentSource.getExtent();
-    if (!olExtent.isEmpty(vectorExtent)) {
-      map.getView().fit(vectorExtent, {
+    const constrnExtent = constrnExtentSource.getExtent();
+    if (!olExtent.isEmpty(constrnExtent)) {
+      map.getView().fit(constrnExtent, {
         duration: 2000,
         padding: [
           MIN_MAIN_EXTENT_RADIUS_PX * 2,
@@ -323,17 +323,17 @@ const App = () => {
         ],
       });
     }
-  }, [features, extentFeatures]);
+  }, [constrnFeatures, extentFeatures]);
 
   useEffect(() => {
     (async () => {
       if (!areFeaturesLoaded) {
         return;
       }
-      assertIsDefined(vectorLayerRef.current);
-      const vectorLayer = vectorLayerRef.current;
-      const vectorSource = vectorLayer.getSource();
-      assertIsDefined(vectorSource);
+      assertIsDefined(constrnLayerRef.current);
+      const constrnLayer = constrnLayerRef.current;
+      const constrnSource = constrnLayer.getSource();
+      assertIsDefined(constrnSource);
       assertIsDefined(mainExtents);
       if (mainExtents.length > 0) {
         if (codeListsRef.current == null) {
@@ -387,15 +387,15 @@ const App = () => {
         }
 
         const format = new GeoJSON();
-        const features: GeoJSONFeatureCollection = format.writeFeaturesObject(
-          vectorSource.getFeatures(),
+        const constrns: GeoJSONFeatureCollection = format.writeFeaturesObject(
+          constrnSource.getFeatures(),
         );
         const parcels: GeoJSONFeatureCollection = format.writeFeaturesObject(
           Object.values(parcelsDict),
         );
 
         const message: IncomingMessage = {
-          features,
+          constrns,
           parcels,
         };
         const worker = new Worker(new URL('./worker.ts', import.meta.url));
@@ -436,10 +436,10 @@ const App = () => {
 
   useEffect(() => {
     assertIsDefined(mapRef.current);
-    assertIsDefined(vectorLayerRef.current);
+    assertIsDefined(constrnLayerRef.current);
     assertIsDefined(parcelLayerRef.current);
     const map = mapRef.current;
-    const vectorLayer = vectorLayerRef.current;
+    const constrnLayer = constrnLayerRef.current;
     const parcelLayer = parcelLayerRef.current;
 
     map.on('pointermove', (evt) => {
@@ -448,7 +448,7 @@ const App = () => {
       }
       const pixel = evt.pixel;
       const feature = map.forEachFeatureAtPixel(pixel, (feature) => feature, {
-        layerFilter: (l) => l === vectorLayer,
+        layerFilter: (l) => l === constrnLayer,
       });
       if (feature) {
         assertFeature(feature);
@@ -461,7 +461,7 @@ const App = () => {
       }
       mapPointerMove({
         highlightedParcel: parcel,
-        highlightedFeature: feature,
+        highlightedConstrn: feature,
       });
     });
   }, []);
@@ -479,12 +479,12 @@ const App = () => {
   }, [parcelGlStyle]);
 
   useEffect(() => {
-    assertIsDefined(vectorLayerRef.current);
-    const vectorLayer = vectorLayerRef.current;
-    vectorLayer.updateStyleVariables({
-      highlightedId: highlightedFeatureId == null ? -1 : highlightedFeatureId,
+    assertIsDefined(constrnLayerRef.current);
+    const constrnLayer = constrnLayerRef.current;
+    constrnLayer.updateStyleVariables({
+      highlightedId: highlightedConstrnId == null ? -1 : highlightedConstrnId,
     });
-  }, [highlightedFeatureId]);
+  }, [highlightedConstrnId]);
   return (
     <MantineProvider theme={theme}>
       <main>
