@@ -16,7 +16,6 @@ import WebGLVectorLayer from 'ol/layer/WebGLVector';
 import { register } from 'ol/proj/proj4';
 import VectorSource from 'ol/source/Vector';
 import { Stroke, Style } from 'ol/style';
-import type { FlatStyleLike } from 'ol/style/flat';
 import proj4 from 'proj4';
 import { useEffect, useRef } from 'react';
 import { MIN_MAIN_EXTENT_RADIUS_PX } from '../constants.ts';
@@ -55,10 +54,9 @@ import {
   type State,
   getAreConstrnFeaturesLoaded,
   getCovers,
+  getFilteredParcels,
   getMainExtentFeatures,
   getMainExtents,
-  getParcelGlStyle,
-  getParcelGlVars,
   useAppStore,
 } from './store.ts';
 import type { IncomingMessage, OutgoingMessage } from './worker.ts';
@@ -77,15 +75,10 @@ const App = () => {
   const extentFeatures = useAppStore(getMainExtentFeatures);
   const areConstrnFeaturesLoaded = useAppStore(getAreConstrnFeaturesLoaded);
   const mainExtents = useAppStore(getMainExtents);
-  const parcelGlVars = useAppStore(getParcelGlVars);
-  const parcelGlVarsRef = useRef<{ [varName: string]: number | boolean }>(
-    parcelGlVars,
-  );
-  const parcelGlStyle = useAppStore(getParcelGlStyle);
-  const parcelGlStyleRef = useRef<FlatStyleLike>(parcelGlStyle);
   const constrnFeatures = useAppStore((state) => state.constrnFeatures);
   const highlightedConstrnId = useAppStore((state) => state.highlightedConstrn);
-  const parcels = useAppStore((state) => state.parcelFeatures);
+  const highlightedParcelId = useAppStore((state) => state.highlightedParcel);
+  const parcels = useAppStore(getFilteredParcels).features;
   const covers = useAppStore(getCovers);
   const mapRef = useRef<OlMap | null>(null);
   const constrnLayerRef = useRef<WebGLVectorLayer | null>(null);
@@ -151,8 +144,27 @@ const App = () => {
 
       const parcelLayer = new WebGLVectorLayer({
         source: new VectorSource(),
-        style: parcelGlStyleRef.current,
-        variables: parcelGlVarsRef.current,
+        style: [
+          {
+            filter: ['==', ['var', 'highlightedId'], ['id']],
+            style: {
+              'stroke-color': '#ffff00',
+              'stroke-width': 4,
+              'fill-color': 'rgba(255,255,000,0.4)',
+            },
+          },
+          {
+            else: true,
+            style: {
+              'stroke-color': '#ffff00',
+              'stroke-width': 1,
+              'fill-color': 'rgba(255,255,000,0.4)',
+            },
+          },
+        ],
+        variables: {
+          highlightedId: -1,
+        },
       });
       parcelLayerRef.current = parcelLayer;
 
@@ -450,6 +462,7 @@ const App = () => {
     const parcelLayer = parcelLayerRef.current;
     const parcelSource = parcelLayer.getSource();
     assertIsDefined(parcelSource);
+    parcelSource.clear(true);
     parcelSource.addFeatures(Object.values(parcels || {}));
   }, [parcels]);
 
@@ -458,7 +471,7 @@ const App = () => {
     const coverLayer = coverLayerRef.current;
     const coverSource = coverLayer.getSource();
     assertIsDefined(coverSource);
-    coverSource.clear();
+    coverSource.clear(true);
     coverSource.addFeatures(covers);
   }, [covers]);
 
@@ -497,14 +510,10 @@ const App = () => {
   useEffect(() => {
     assertIsDefined(parcelLayerRef.current);
     const parcelLayer = parcelLayerRef.current;
-    parcelLayer.updateStyleVariables(parcelGlVars);
-  }, [parcelGlVars]);
-
-  useEffect(() => {
-    assertIsDefined(parcelLayerRef.current);
-    const parcelLayer = parcelLayerRef.current;
-    parcelLayer.setStyle(parcelGlStyle);
-  }, [parcelGlStyle]);
+    parcelLayer.updateStyleVariables({
+      highlightedId: highlightedParcelId == null ? -1 : highlightedParcelId,
+    });
+  }, [highlightedParcelId]);
 
   useEffect(() => {
     assertIsDefined(constrnLayerRef.current);

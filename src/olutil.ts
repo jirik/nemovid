@@ -357,16 +357,22 @@ export const filterParcels = ({
   features,
   filters,
 }: {
-  models: Record<string, SimpleParcel> | null;
-  features: Record<string, Feature> | null;
+  models: { [id: string]: SimpleParcel } | null;
+  features: { [id: string]: Feature } | null;
   filters: ParcelFilters;
-}): Record<string, SimpleParcel> | null => {
+}): {
+  models: { [id: string]: SimpleParcel } | null;
+  features: { [id: string]: Feature } | null;
+} => {
   if (
     models == null ||
     features == null ||
     deepEqual(filters, defaultFilters)
   ) {
-    return models;
+    return {
+      models,
+      features,
+    };
   }
   const useAreaFilters =
     filters.maxCoveredAreaM2 !== defaultFilters.maxCoveredAreaM2 ||
@@ -399,14 +405,16 @@ export const filterParcels = ({
     },
     {},
   );
-  const result: Record<string, SimpleParcel> = Object.values(models).reduce(
-    (prev: Record<string, SimpleParcel>, model) => {
-      if (model.id in filteredFeatures) {
-        prev[model.id] = model;
-      }
-      return prev;
-    },
-    {},
-  );
-  return result;
+  const filteredModels: Record<string, SimpleParcel> = Object.values(
+    models,
+  ).reduce((prev: Record<string, SimpleParcel>, model) => {
+    if (model.id in filteredFeatures) {
+      prev[model.id] = model;
+    }
+    return prev;
+  }, {});
+  return {
+    features: filteredFeatures,
+    models: filteredModels,
+  };
 };
