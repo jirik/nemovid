@@ -54,6 +54,7 @@ import settings from './settings.ts';
 import {
   type State,
   getAreConstrnFeaturesLoaded,
+  getCovers,
   getMainExtentFeatures,
   getMainExtents,
   getParcelGlStyle,
@@ -85,7 +86,7 @@ const App = () => {
   const constrnFeatures = useAppStore((state) => state.constrnFeatures);
   const highlightedConstrnId = useAppStore((state) => state.highlightedConstrn);
   const parcels = useAppStore((state) => state.parcelFeatures);
-  const covers = useAppStore((state) => state.coverFeatures);
+  const covers = useAppStore(getCovers);
   const mapRef = useRef<OlMap | null>(null);
   const constrnLayerRef = useRef<WebGLVectorLayer | null>(null);
   const constrnExtentLayerRef = useRef<VectorLayer | null>(null);
@@ -457,7 +458,8 @@ const App = () => {
     const coverLayer = coverLayerRef.current;
     const coverSource = coverLayer.getSource();
     assertIsDefined(coverSource);
-    coverSource.addFeatures(Object.values(covers || {}));
+    coverSource.clear();
+    coverSource.addFeatures(covers);
   }, [covers]);
 
   useEffect(() => {
