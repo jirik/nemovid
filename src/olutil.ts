@@ -340,10 +340,10 @@ export function* setParcelIntersections({
   }
 }
 
-export const ParcelOfficialAreaM2PropName = 'statkarParcelAreaM2';
-export const ParcelCoveredAreaM2PropName = 'statkarParcelCoverM2';
-export const ParcelCoveredAreaPercPropName = 'statkarParcelCoverPerc';
-export const ParcelCoverPropName = 'statkarParcelCover';
+export const ParcelOfficialAreaM2PropName = 'nemovidParcelAreaM2';
+export const ParcelCoveredAreaM2PropName = 'nemovidParcelCoverM2';
+export const ParcelCoveredAreaPercPropName = 'nemovidParcelCoverPerc';
+export const ParcelCoverPropName = 'nemovidParcelCover';
 export const ParcelHasBuildingPropName = 'building';
 
 export type ParcelAreas = {

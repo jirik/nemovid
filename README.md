@@ -1,10 +1,10 @@
-# Statkar
+# Nemovid
 
 Urban planning tool focused on finding parcels that intersects with planned construction (e.g. roads, buildings, etc.).
 
 Following input files are supported:
 - GeoJSON with polygon features in S-JTSK (EPSG:5514)
-- DXF in S-JTSK (EPSG:5514), only polygon features are considered
+- DXF in S-JTSK (EPSG:5514), only hatch features are considered
 
 ## Requirements
 - linux
@@ -15,8 +15,8 @@ Following input files are supported:
 ## Installation
 ```bash
 # get the code
-git clone git@github.com:jirik/statkar.git
-cd statkar
+git clone git@github.com:jirik/nemovid.git
+cd nemovid
 
 # use default settings, or adjust it to your own needs
 cp .env.default .env
