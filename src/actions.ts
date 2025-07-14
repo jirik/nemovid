@@ -120,7 +120,7 @@ export const parcelAreasLoaded = ({
         const coverId = Object.values(coverFeatures).length + 1;
         const coverFeature = new Feature({
           geometry: polygon,
-          parcelId,
+          parcelId: Number.parseInt(parcelId),
         });
         coverFeature.setId(coverId);
         coverFeatures[coverId] = coverFeature;
@@ -138,17 +138,13 @@ export const parcelAreasLoaded = ({
 
 export const mapPointerMove = ({
   highlightedParcel,
-  highlightedCover,
 }: {
   highlightedParcel?: Feature | null;
-  highlightedCover?: Feature | null;
 }) =>
   set((state) => {
     state.highlightedParcel = highlightedParcel
       ? (highlightedParcel.getId() as number)
       : null;
-    const coverFid = highlightedCover?.getId();
-    state.highlightedCover = typeof coverFid === 'number' ? coverFid : null;
   });
 
 export const parcelFiltersChanged = (filters: Partial<ParcelFilters>) =>

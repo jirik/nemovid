@@ -33,7 +33,6 @@ export interface State {
   titleDeeds: Record<string, SimpleTitleDeed> | null;
   owners: Record<string, SimpleOwner> | null;
   highlightedParcel: number | null;
-  highlightedCover: number | null;
   parcelAreasTimestamp: number | null;
   parcelInfosTimestamp: number | null;
   processedParcels: number | null;
@@ -63,7 +62,6 @@ const initialState: State = {
   owners: null,
   processedParcels: null,
   highlightedParcel: null,
-  highlightedCover: null,
   parcelAreasTimestamp: null,
   parcelInfosTimestamp: null,
   parcelFilters: structuredClone(defaultFilters),
@@ -322,7 +320,7 @@ export const getCovers = createAppSelector(
     const result: Feature[] = [];
     if (parcels) {
       for (const cover of Object.values(coverFeatures || {})) {
-        const parcelId = cover.get('parcelId') as string;
+        const parcelId = cover.get('parcelId') as number;
         if (parcelId in parcels) {
           result.push(cover);
         }

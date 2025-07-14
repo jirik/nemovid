@@ -76,7 +76,6 @@ const App = () => {
   const areConstrnFeaturesLoaded = useAppStore(getAreConstrnFeaturesLoaded);
   const mainExtents = useAppStore(getMainExtents);
   const constrnFeatures = useAppStore((state) => state.constrnFeatures);
-  const highlightedCoverId = useAppStore((state) => state.highlightedCover);
   const highlightedParcelId = useAppStore((state) => state.highlightedParcel);
   const parcels = useAppStore(getFilteredParcels).features;
   const covers = useAppStore(getCovers);
@@ -168,7 +167,7 @@ const App = () => {
         source: new VectorSource(),
         style: [
           {
-            filter: ['==', ['var', 'highlightedId'], ['id']],
+            filter: ['==', ['var', 'highlightedParcelId'], ['get', 'parcelId']],
             style: {
               'stroke-color': coverStrokeColor,
               'stroke-width': 4,
@@ -187,7 +186,7 @@ const App = () => {
           },
         ],
         variables: {
-          highlightedId: -1,
+          highlightedParcelId: -1,
         },
       });
       coverLayerRef.current = coverLayer;
@@ -483,10 +482,8 @@ const App = () => {
 
   useEffect(() => {
     assertIsDefined(mapRef.current);
-    assertIsDefined(coverLayerRef.current);
     assertIsDefined(parcelLayerRef.current);
     const map = mapRef.current;
-    const coverLayer = coverLayerRef.current;
     const parcelLayer = parcelLayerRef.current;
 
     map.on('pointermove', (evt) => {
@@ -494,12 +491,6 @@ const App = () => {
         return;
       }
       const pixel = evt.pixel;
-      const feature = map.forEachFeatureAtPixel(pixel, (feature) => feature, {
-        layerFilter: (l) => l === coverLayer,
-      });
-      if (feature) {
-        assertFeature(feature);
-      }
       const parcel = map.forEachFeatureAtPixel(pixel, (feature) => feature, {
         layerFilter: (l) => l === parcelLayer,
       });
@@ -508,7 +499,6 @@ const App = () => {
       }
       mapPointerMove({
         highlightedParcel: parcel,
-        highlightedCover: feature,
       });
     });
   }, []);
@@ -525,9 +515,10 @@ const App = () => {
     assertIsDefined(coverLayerRef.current);
     const coverLayer = coverLayerRef.current;
     coverLayer.updateStyleVariables({
-      highlightedId: highlightedCoverId == null ? -1 : highlightedCoverId,
+      highlightedParcelId:
+        highlightedParcelId == null ? -1 : highlightedParcelId,
     });
-  }, [highlightedCoverId]);
+  }, [highlightedParcelId]);
   return (
     <MantineProvider theme={theme}>
       <main>
