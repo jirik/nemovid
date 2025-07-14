@@ -12,6 +12,7 @@ import {
   ParcelCoveredAreaPercPropName,
   ParcelHasBuildingPropName,
 } from './olutil.ts';
+import settings from './settings.ts';
 import {
   type ParcelFilters,
   type SimpleOwner,
@@ -168,6 +169,19 @@ export const titleDeedsLoaded = ({
     state.titleDeeds = titleDeeds;
     state.owners = owners;
     state.parcelInfosTimestamp = Date.now();
+    assertIsDefined(state.parcelFeatures);
+    for (const titleDeed of Object.values(state.titleDeeds)) {
+      const group = Object.values(settings.ownerGroups).find(
+        (group) =>
+          'ownerId' in group && titleDeed.owners.includes(group.ownerId),
+      );
+      if (group) {
+        for (const parcelId of titleDeed.parcels) {
+          const parcel = state.parcelFeatures[parcelId];
+          parcel.set('ownerGroup', group.groupId);
+        }
+      }
+    }
   });
 
 export const codeListsLoaded = (codeLists: Partial<State['codeLists']>) =>

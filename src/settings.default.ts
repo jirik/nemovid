@@ -1,4 +1,4 @@
-import type { Settings } from './settings.ts';
+import type { InputSettings } from './settings.ts';
 
 export default {
   parcelRestUrlTemplate: null,
@@ -6,4 +6,10 @@ export default {
   titleDeedInfoUrlTemplate: null,
   ownerInfoUrlTemplate: null,
   publicUrl: import.meta.env.PUBLIC_PUBLIC_URL,
-} satisfies Settings;
+  ownerGroups: {
+    default: {
+      label: 'ostatní',
+      color: [255, 255, 0],
+    },
+  },
+} satisfies InputSettings;

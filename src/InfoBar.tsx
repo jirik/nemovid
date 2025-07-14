@@ -2,6 +2,7 @@ import { Collapse } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { saveAs } from 'file-saver';
 import { type ReactNode, useCallback } from 'react';
+import React from 'react';
 import { BooleanFilter } from './BooleanFilter.tsx';
 import { CodeListFilter } from './CodeListFilter.tsx';
 import styles from './InfoBar.module.css';
@@ -265,9 +266,67 @@ const FilterSection = () => {
   );
 };
 
+const MapLegend = () => {
+  const [opened, { toggle }] = useDisclosure(true);
+  const content = (
+    <>
+      <div>
+        <h4>Plánovaná výstavba</h4>
+        <div className={styles.mapLegendItems}>
+          <div
+            className={styles.mapLegendPolygon}
+            style={{
+              backgroundColor: 'rgba(00,200,00,0.4)',
+              borderColor: '#00aa00',
+              borderWidth: 1,
+            }}
+          />
+          <div>Překryv plánované výstavby s parcelou</div>
+          <div
+            className={styles.mapLegendPolygon}
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.4)',
+              borderColor: '#c513cd',
+              borderWidth: 1,
+            }}
+          />
+          <div>Plánovaná výstavba</div>
+        </div>
+      </div>
+      <div>
+        <h4>Parcely dle vlastníků</h4>
+        <div className={styles.mapLegendItems}>
+          {Object.values(settings.ownerGroups).map((ownerGroup) => {
+            return (
+              <React.Fragment key={ownerGroup.groupId}>
+                <div
+                  className={styles.mapLegendPolygon}
+                  style={{
+                    backgroundColor: `rgba(${ownerGroup.color.join(',')}, 0.7)`,
+                    borderColor: `rgba(${ownerGroup.color.join(',')}, 1)`,
+                    borderWidth: 1,
+                  }}
+                />
+                <div>{ownerGroup.label}</div>
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+  return (
+    <div className={[styles.section, styles.mapLegend].join(' ')}>
+      <h3 onClick={toggle}>{opened ? '⊟' : '⊞'} Legenda mapy</h3>
+      <Collapse in={opened}>{content}</Collapse>
+    </div>
+  );
+};
+
 const InfoBar = () => {
   const fileName = useAppStore((state) => state.fileName);
   const areaFiltersState = useAppStore(getAreaFiltersState);
+  const parcelFeatures = useAppStore((state) => state.parcelFeatures);
 
   return (
     <div id="infoBar" className={styles.container}>
@@ -299,6 +358,7 @@ const InfoBar = () => {
           <div>{fileName}</div>
         </div>
       )}
+      {parcelFeatures == null ? null : <MapLegend />}
       {areaFiltersState === false ? null : <FilterSection />}
       {fileName ? <ParcelsSection /> : null}
     </div>

@@ -59,6 +59,7 @@ import {
   getMainExtents,
   useAppStore,
 } from './store.ts';
+import { getParcelStyle } from './style.ts';
 import type { IncomingMessage, OutgoingMessage } from './worker.ts';
 
 const theme = createTheme({
@@ -127,26 +128,7 @@ const App = () => {
 
       const parcelLayer = new WebGLVectorLayer({
         source: new VectorSource(),
-        style: [
-          {
-            filter: ['==', ['var', 'highlightedId'], ['id']],
-            style: {
-              'stroke-color': '#ffff00',
-              'stroke-width': 4,
-              'stroke-offset': -2,
-              'fill-color': 'rgba(255,255,000,0.4)',
-            },
-          },
-          {
-            else: true,
-            style: {
-              'stroke-color': '#ffff00',
-              'stroke-width': 1,
-              'stroke-offset': 0.5,
-              'fill-color': 'rgba(255,255,000,0.4)',
-            },
-          },
-        ],
+        style: getParcelStyle(),
         variables: {
           highlightedId: -1,
         },
