@@ -134,6 +134,7 @@ const App = () => {
             style: {
               'stroke-color': '#ffff00',
               'stroke-width': 4,
+              'stroke-offset': -2,
               'fill-color': 'rgba(255,255,000,0.4)',
             },
           },
@@ -142,6 +143,7 @@ const App = () => {
             style: {
               'stroke-color': '#ffff00',
               'stroke-width': 1,
+              'stroke-offset': 0.5,
               'fill-color': 'rgba(255,255,000,0.4)',
             },
           },
@@ -170,6 +172,7 @@ const App = () => {
             style: {
               'stroke-color': coverStrokeColor,
               'stroke-width': 4,
+              'stroke-offset': 2,
               'fill-color': 'rgba(00,200,00,0.4)',
             },
           },
@@ -178,6 +181,7 @@ const App = () => {
             style: {
               'stroke-color': coverStrokeColor,
               'stroke-width': 1,
+              'stroke-offset': 0.5,
               'fill-color': 'rgba(00,200,00,0.4)',
             },
           },
