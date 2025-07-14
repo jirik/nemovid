@@ -1,6 +1,6 @@
 # Nemovid
 
-Urban planning tool focused on finding parcels that intersects with planned construction (e.g. roads, buildings, etc.).
+Urban planning tool focused on finding parcels in the Czech Republic that intersects with planned construction (e.g. roads, buildings, etc.).
 
 Following input files are supported:
 - GeoJSON with polygon features in S-JTSK (EPSG:5514)

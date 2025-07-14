@@ -76,14 +76,14 @@ const App = () => {
   const areConstrnFeaturesLoaded = useAppStore(getAreConstrnFeaturesLoaded);
   const mainExtents = useAppStore(getMainExtents);
   const constrnFeatures = useAppStore((state) => state.constrnFeatures);
-  const highlightedConstrnId = useAppStore((state) => state.highlightedConstrn);
+  const highlightedCoverId = useAppStore((state) => state.highlightedCover);
   const highlightedParcelId = useAppStore((state) => state.highlightedParcel);
   const parcels = useAppStore(getFilteredParcels).features;
   const covers = useAppStore(getCovers);
   const mapRef = useRef<OlMap | null>(null);
   const constrnLayerRef = useRef<WebGLVectorLayer | null>(null);
   const constrnExtentLayerRef = useRef<VectorLayer | null>(null);
-  const coverLayerRef = useRef<VectorLayer | null>(null);
+  const coverLayerRef = useRef<WebGLVectorLayer | null>(null);
   const parcelLayerRef = useRef<WebGLVectorLayer | null>(null);
   const codeListsRef = useRef<State['codeLists']>(null);
 
@@ -100,26 +100,10 @@ const App = () => {
 
       const constrnLayer = new WebGLVectorLayer({
         source: new VectorSource(),
-        style: [
-          {
-            filter: ['==', ['var', 'highlightedId'], ['id']],
-            style: {
-              'stroke-color': constrnStrokeColor,
-              'stroke-width': 3,
-              'fill-color': 'rgba(255,255,255,0.4)',
-            },
-          },
-          {
-            else: true,
-            style: {
-              'stroke-color': constrnStrokeColor,
-              'stroke-width': 1,
-              'fill-color': 'rgba(255,255,255,0.4)',
-            },
-          },
-        ],
-        variables: {
-          highlightedId: -1,
+        style: {
+          'stroke-color': constrnStrokeColor,
+          'stroke-width': 1,
+          'fill-color': 'rgba(255,255,255,0.4)',
         },
       });
       constrnLayerRef.current = constrnLayer;
@@ -176,12 +160,30 @@ const App = () => {
       });
       constrnExtentLayerRef.current = constrnExtentLayer;
 
-      const coverLayer = new VectorLayer({
+      const coverStrokeColor = '#00aa00';
+
+      const coverLayer = new WebGLVectorLayer({
         source: new VectorSource(),
-        style: {
-          'stroke-color': '#00aa00',
-          'stroke-width': 1,
-          'fill-color': 'rgba(00,200,00,0.4)',
+        style: [
+          {
+            filter: ['==', ['var', 'highlightedId'], ['id']],
+            style: {
+              'stroke-color': coverStrokeColor,
+              'stroke-width': 4,
+              'fill-color': 'rgba(00,200,00,0.4)',
+            },
+          },
+          {
+            else: true,
+            style: {
+              'stroke-color': coverStrokeColor,
+              'stroke-width': 1,
+              'fill-color': 'rgba(00,200,00,0.4)',
+            },
+          },
+        ],
+        variables: {
+          highlightedId: -1,
         },
       });
       coverLayerRef.current = coverLayer;
@@ -477,10 +479,10 @@ const App = () => {
 
   useEffect(() => {
     assertIsDefined(mapRef.current);
-    assertIsDefined(constrnLayerRef.current);
+    assertIsDefined(coverLayerRef.current);
     assertIsDefined(parcelLayerRef.current);
     const map = mapRef.current;
-    const constrnLayer = constrnLayerRef.current;
+    const coverLayer = coverLayerRef.current;
     const parcelLayer = parcelLayerRef.current;
 
     map.on('pointermove', (evt) => {
@@ -489,7 +491,7 @@ const App = () => {
       }
       const pixel = evt.pixel;
       const feature = map.forEachFeatureAtPixel(pixel, (feature) => feature, {
-        layerFilter: (l) => l === constrnLayer,
+        layerFilter: (l) => l === coverLayer,
       });
       if (feature) {
         assertFeature(feature);
@@ -502,7 +504,7 @@ const App = () => {
       }
       mapPointerMove({
         highlightedParcel: parcel,
-        highlightedConstrn: feature,
+        highlightedCover: feature,
       });
     });
   }, []);
@@ -516,12 +518,12 @@ const App = () => {
   }, [highlightedParcelId]);
 
   useEffect(() => {
-    assertIsDefined(constrnLayerRef.current);
-    const constrnLayer = constrnLayerRef.current;
-    constrnLayer.updateStyleVariables({
-      highlightedId: highlightedConstrnId == null ? -1 : highlightedConstrnId,
+    assertIsDefined(coverLayerRef.current);
+    const coverLayer = coverLayerRef.current;
+    coverLayer.updateStyleVariables({
+      highlightedId: highlightedCoverId == null ? -1 : highlightedCoverId,
     });
-  }, [highlightedConstrnId]);
+  }, [highlightedCoverId]);
   return (
     <MantineProvider theme={theme}>
       <main>

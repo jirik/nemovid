@@ -117,12 +117,12 @@ export const parcelAreasLoaded = ({
         console.error('Unsupported geometry', geom);
       }
       for (const polygon of polygons) {
-        const coverId = `${Object.values(coverFeatures).length + 1}`;
+        const coverId = Object.values(coverFeatures).length + 1;
         const coverFeature = new Feature({
-          id: coverId,
           geometry: polygon,
           parcelId,
         });
+        coverFeature.setId(coverId);
         coverFeatures[coverId] = coverFeature;
       }
     }
@@ -138,18 +138,17 @@ export const parcelAreasLoaded = ({
 
 export const mapPointerMove = ({
   highlightedParcel,
-  highlightedConstrn,
+  highlightedCover,
 }: {
   highlightedParcel?: Feature | null;
-  highlightedConstrn?: Feature | null;
+  highlightedCover?: Feature | null;
 }) =>
   set((state) => {
     state.highlightedParcel = highlightedParcel
       ? (highlightedParcel.getId() as number)
       : null;
-    const featureFid = highlightedConstrn?.getId();
-    state.highlightedConstrn =
-      typeof featureFid === 'number' ? featureFid : null;
+    const coverFid = highlightedCover?.getId();
+    state.highlightedCover = typeof coverFid === 'number' ? coverFid : null;
   });
 
 export const parcelFiltersChanged = (filters: Partial<ParcelFilters>) =>

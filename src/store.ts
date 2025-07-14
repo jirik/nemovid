@@ -33,7 +33,7 @@ export interface State {
   titleDeeds: Record<string, SimpleTitleDeed> | null;
   owners: Record<string, SimpleOwner> | null;
   highlightedParcel: number | null;
-  highlightedConstrn: number | null;
+  highlightedCover: number | null;
   parcelAreasTimestamp: number | null;
   parcelInfosTimestamp: number | null;
   processedParcels: number | null;
@@ -63,7 +63,7 @@ const initialState: State = {
   owners: null,
   processedParcels: null,
   highlightedParcel: null,
-  highlightedConstrn: null,
+  highlightedCover: null,
   parcelAreasTimestamp: null,
   parcelInfosTimestamp: null,
   parcelFilters: structuredClone(defaultFilters),
