@@ -75,7 +75,7 @@ self.onmessage = async (event) => {
   }
   const parcelAreas = coveredParcels.reduce(
     (prev: Record<string, ParcelAreas>, parcel) => {
-      const id = parcel.getId() as number;
+      const id = parcel.getId() as string;
       prev[id] = {
         coveredAreaM2: parcel.get(ParcelCoveredAreaM2PropName) as number,
         coveredAreaPerc: parcel.get(ParcelCoveredAreaPercPropName) as number,

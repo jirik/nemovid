@@ -64,9 +64,9 @@ export const getTitleDeeds = async ({
   const allTitleDeeds: Record<string, SimpleTitleDeed> = {};
   const allOwners: Record<string, SimpleOwner> = {};
   for (const parcel of parcels) {
-    const parcelId = parcel.getId() as number;
+    const parcelId = parcel.getId() as string;
     const parcelFeature = parcelFeatures.find(
-      (f) => f.properties.par_id === parcelId,
+      (f) => f.properties.par_id === Number.parseInt(parcelId),
     );
     const zoningId = getParcelZoning(parcel).id;
     let owners: SimpleOwner[] = [];

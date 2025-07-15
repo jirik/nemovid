@@ -168,7 +168,7 @@ const App = () => {
           },
         ],
         variables: {
-          highlightedParcelId: -1,
+          highlightedParcelId: '',
         },
       });
       coverLayerRef.current = coverLayer;
@@ -280,11 +280,11 @@ const App = () => {
       const geojsonFormat = new GeoJSON({
         dataProjection: 'EPSG:5514',
       });
-      const newFeatures = geojsonFormat.readFeatures(geojsonString);
-      for (const [idx, feature] of newFeatures.entries()) {
+      const constrnFeatures = geojsonFormat.readFeatures(geojsonString);
+      for (const [idx, feature] of constrnFeatures.entries()) {
         feature.setId(idx + 1);
       }
-      fileOpened({ name: event.file.name, features: newFeatures });
+      fileOpened({ name: event.file.name, features: constrnFeatures });
     });
     map.addInteraction(dnd);
     return () => {
@@ -380,8 +380,7 @@ const App = () => {
           for (const parcel of parcelGroup) {
             const inspireId = parcel.getId() as string;
             console.assert(typeof inspireId === 'string');
-            const parcelId = Number.parseInt(inspireId.split('.')[1]);
-            console.assert(typeof parcelId === 'number');
+            const parcelId = inspireId.split('.')[1];
             parcel.setId(parcelId);
             if (!(parcelId in parcelsDict)) {
               parcelsDict[parcelId] = parcel;
@@ -489,7 +488,7 @@ const App = () => {
     assertIsDefined(parcelLayerRef.current);
     const parcelLayer = parcelLayerRef.current;
     parcelLayer.updateStyleVariables({
-      highlightedId: highlightedParcelId == null ? -1 : highlightedParcelId,
+      highlightedId: highlightedParcelId == null ? '' : highlightedParcelId,
     });
   }, [highlightedParcelId]);
 
@@ -498,7 +497,7 @@ const App = () => {
     const coverLayer = coverLayerRef.current;
     coverLayer.updateStyleVariables({
       highlightedParcelId:
-        highlightedParcelId == null ? -1 : highlightedParcelId,
+        highlightedParcelId == null ? '' : highlightedParcelId,
     });
   }, [highlightedParcelId]);
   return (

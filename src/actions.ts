@@ -53,8 +53,8 @@ export const parcelsLoaded = ({ parcels }: { parcels: Feature[] }) =>
     state.parcelFeatures = {};
     state.zonings = {};
     for (const parcelFeature of parcels) {
-      const parcelId = parcelFeature.getId() as number;
-      console.assert(typeof parcelId === 'number');
+      const parcelId = parcelFeature.getId() as string;
+      console.assert(typeof parcelId === 'string');
 
       if (!(parcelId in parcelsDict)) {
         const simpleZoning = getParcelZoning(parcelFeature);
@@ -121,7 +121,7 @@ export const parcelAreasLoaded = ({
         const coverId = Object.values(coverFeatures).length + 1;
         const coverFeature = new Feature({
           geometry: polygon,
-          parcelId: Number.parseInt(parcelId),
+          parcelId: parcelId,
         });
         coverFeature.setId(coverId);
         coverFeatures[coverId] = coverFeature;
@@ -144,7 +144,7 @@ export const mapPointerMove = ({
 }) =>
   set((state) => {
     state.highlightedParcel = highlightedParcel
-      ? (highlightedParcel.getId() as number)
+      ? (highlightedParcel.getId() as string)
       : null;
   });
 

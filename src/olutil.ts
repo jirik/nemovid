@@ -166,7 +166,7 @@ export const getParcelsByConstrnExtent = ({
   const parcelsByExtent = parcels.filter((parcel) => {
     const parcelGeom = parcel.getGeometry();
     assertIsDefined(parcelGeom);
-    const parcelId: number = parcel.getId() as number;
+    const parcelId: string = parcel.getId() as string;
     const foundConstrns = constrnSource.getFeaturesInExtent(
       parcelGeom.getExtent(),
     );
@@ -206,7 +206,7 @@ export const getIntersectedParcels = ({
   const parcelsByGeom = parcelsByExtent.filter((parcel) => {
     const parcelJstsGeom = parser.read(parcel.getGeometry());
     console.assert(parcelJstsGeom instanceof JstsPolygon);
-    const parcelId: number = parcel.getId() as number;
+    const parcelId: string = parcel.getId() as string;
     const parcelConstrnsByExtent = constrnsByParcel[parcelId];
     const intersects = parcelConstrnsByExtent.some((constrn) => {
       const constrnId = constrn.getId() as number;
@@ -269,7 +269,7 @@ export function* setParcelIntersections({
   for (const [parcelIdx, parcel] of parcels.entries()) {
     const parcelJstsGeom = parser.read(parcel.getGeometry());
     console.assert(parcelJstsGeom instanceof JstsPolygon);
-    const parcelId: number = parcel.getId() as number;
+    const parcelId: string = parcel.getId() as string;
     const parcelConstrnsByExtent = constrnsByParcel[parcelId];
     const parcelIntersections: JstsGeometry[] = [];
     for (const constrn of parcelConstrnsByExtent) {
@@ -400,7 +400,7 @@ export const filterParcels = ({
   });
   const filteredFeatures = filteredFeaturesList.reduce(
     (prev: Record<string, Feature>, feature) => {
-      prev[feature.getId() as number] = feature;
+      prev[feature.getId() as string] = feature;
       return prev;
     },
     {},

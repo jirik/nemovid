@@ -32,7 +32,7 @@ export interface State {
   zonings: Record<string, SimpleZoning> | null;
   titleDeeds: Record<string, SimpleTitleDeed> | null;
   owners: Record<string, SimpleOwner> | null;
-  highlightedParcel: number | null;
+  highlightedParcel: string | null;
   parcelAreasTimestamp: number | null;
   parcelInfosTimestamp: number | null;
   processedParcels: number | null;
@@ -128,7 +128,7 @@ export type Zoning = {
 };
 
 export type Parcel = {
-  id: number;
+  id: string;
   label: string;
   zoning: Zoning;
   titleDeed: TitleDeed | null;
@@ -138,7 +138,7 @@ export type Parcel = {
 };
 
 export type SimpleZoning = Omit<Zoning, 'parcels' | 'titleDeeds'> & {
-  parcels: number[];
+  parcels: string[];
   titleDeeds: number[];
 };
 export type SimpleTitleDeed = Omit<
@@ -146,7 +146,7 @@ export type SimpleTitleDeed = Omit<
   'zoning' | 'parcels' | 'owners'
 > & {
   zoning: string;
-  parcels: number[];
+  parcels: string[];
   owners: number[];
 };
 
@@ -320,7 +320,7 @@ export const getCovers = createAppSelector(
     const result: Feature[] = [];
     if (parcels) {
       for (const cover of Object.values(coverFeatures || {})) {
-        const parcelId = cover.get('parcelId') as number;
+        const parcelId = cover.get('parcelId') as string;
         if (parcelId in parcels) {
           result.push(cover);
         }
