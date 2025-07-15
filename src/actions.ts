@@ -14,6 +14,7 @@ import {
 } from './olutil.ts';
 import settings from './settings.ts';
 import {
+  type MapLayer,
   type ParcelFilters,
   type SimpleOwner,
   type SimpleParcel,
@@ -191,3 +192,16 @@ export const codeListsLoaded = (codeLists: Partial<State['codeLists']>) =>
       ...codeLists,
     };
   });
+
+export const mapLayersChange = (mapLayers: {
+  [id: string]: Partial<MapLayer>;
+}) => {
+  set((state) => {
+    for (const [id, layer] of Object.entries(mapLayers)) {
+      state.mapLayers[id] = {
+        ...state.mapLayers[id],
+        ...layer,
+      };
+    }
+  });
+};

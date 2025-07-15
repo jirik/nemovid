@@ -91,6 +91,7 @@ const App = () => {
   const coverLayerRef = useRef<WebGLVectorLayer | null>(null);
   const parcelLayerRef = useRef<WebGLVectorLayer | null>(null);
   const codeListsRef = useRef<State['codeLists']>(null);
+  const mapLayersRef = useAppStore((state) => state.mapLayers);
 
   useEffect(() => {
     (async () => {
@@ -105,12 +106,18 @@ const App = () => {
 
       const constrnSource = new VectorSource();
       const constrnFillLayer = new WebGLVectorLayer({
+        properties: {
+          id: 'constrnFill',
+        },
         source: constrnSource,
         style: {
           'fill-color': 'rgba(255,255,255,0.4)',
         },
       });
       const constrnStrokeLayer = new WebGLVectorLayer({
+        properties: {
+          id: 'constrnStroke',
+        },
         source: constrnSource,
         style: {
           'stroke-color': constrnStrokeColor,
@@ -141,6 +148,9 @@ const App = () => {
       ];
 
       const parcelLayer = new WebGLVectorLayer({
+        properties: {
+          id: 'parcels',
+        },
         source: new VectorSource(),
         style: getParcelStyle(),
         variables: {
@@ -160,6 +170,9 @@ const App = () => {
       const coverStrokeColor = '#00aa00';
 
       const coverLayer = new WebGLVectorLayer({
+        properties: {
+          id: 'covers',
+        },
         source: new VectorSource(),
         style: [
           {
@@ -215,9 +228,9 @@ const App = () => {
 
       map.addLayer(tileLayer);
       map.addLayer(tileLayer2);
-      map.addLayer(parcelLayer);
       map.addLayer(constrnExtentLayer);
       map.addLayer(constrnFillLayer);
+      map.addLayer(parcelLayer);
       map.addLayer(coverLayer);
       map.addLayer(constrnStrokeLayer);
 
@@ -515,6 +528,22 @@ const App = () => {
         highlightedParcelId == null ? '' : highlightedParcelId,
     });
   }, [highlightedParcelId]);
+
+  useEffect(() => {
+    assertIsDefined(coverLayerRef.current);
+    assertIsDefined(parcelLayerRef.current);
+    assertIsDefined(constrnLayersRef.current);
+    assertIsDefined(mapRef.current);
+    const map = mapRef.current;
+    const mapLayers = map.getLayers().getArray();
+    for (const [id, layer] of Object.entries(mapLayersRef)) {
+      const olLayer = mapLayers.find((l) => l.get('id') === id);
+      if (olLayer && olLayer.getVisible() !== layer.visible) {
+        olLayer.setVisible(layer.visible);
+      }
+    }
+  }, [mapLayersRef]);
+
   return (
     <MantineProvider theme={theme}>
       <main>

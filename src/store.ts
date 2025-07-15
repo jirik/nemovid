@@ -1,5 +1,6 @@
 import type { Draft } from 'immer';
 import type { Feature } from 'ol';
+import { memoize } from 'proxy-memoize';
 import { createSelector } from 'reselect';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
@@ -23,6 +24,11 @@ export type ParcelFilters = {
   landType: { [code: string]: boolean } | null;
 };
 
+export type MapLayer = {
+  id: string;
+  visible: boolean;
+};
+
 export interface State {
   fileName: string | null;
   constrnFeatures: Feature[] | null;
@@ -41,6 +47,7 @@ export interface State {
     landUse: CodeList | null;
     landType: CodeList | null;
   };
+  mapLayers: { [id: string]: MapLayer };
 }
 
 export const defaultFilters: ParcelFilters = {
@@ -69,6 +76,16 @@ const initialState: State = {
     landUse: null,
     landType: null,
   },
+  mapLayers: ['parcels', 'constrnFill', 'constrnStroke', 'covers'].reduce(
+    (prev: State['mapLayers'], id) => {
+      prev[id] = {
+        id,
+        visible: true,
+      };
+      return prev;
+    },
+    {},
+  ),
 };
 
 type Setter = {
@@ -436,3 +453,12 @@ export const getCodeLists = createAppSelector(
 export type ParcelStats = {
   maxCoveredAreaM2: number | null;
 };
+
+export const getMapLayers = memoize(
+  ([state, mapLayerIds]: [State, string[]]) => {
+    return mapLayerIds.map((mapLayerId) => state.mapLayers[mapLayerId]);
+  },
+  {
+    size: Object.values(initialState.mapLayers).length,
+  },
+);

@@ -1,4 +1,4 @@
-import { Collapse } from '@mantine/core';
+import { Collapse, Switch } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { saveAs } from 'file-saver';
 import { type ReactNode, useCallback } from 'react';
@@ -7,13 +7,15 @@ import { BooleanFilter } from './BooleanFilter.tsx';
 import { CodeListFilter } from './CodeListFilter.tsx';
 import styles from './InfoBar.module.css';
 import { SliderInput } from './SliderInput.tsx';
-import { parcelFiltersChanged } from './actions.ts';
+import { mapLayersChange, parcelFiltersChanged } from './actions.ts';
 import { assertIsDefined } from './assert.ts';
 import settings from './settings.ts';
 import {
+  type MapLayer,
   type Zoning,
   getAreaFiltersState,
   getCodeLists,
+  getMapLayers,
   getOwners,
   getParcelStats,
   getParcels,
@@ -266,7 +268,35 @@ const FilterSection = () => {
   );
 };
 
-const MapLegend = () => {
+const MapLayerVisibilitySwitch = ({
+  mapLayerIds,
+}: { mapLayerIds: string[] }) => {
+  const mapLayers = useAppStore((state) => getMapLayers([state, mapLayerIds]));
+  const visible = mapLayers.some((mapLayer) => mapLayer.visible);
+  return (
+    <Switch
+      label="Viditelnost vrstvy"
+      withThumbIndicator={false}
+      checked={visible}
+      onChange={(event) => {
+        const visible = event.currentTarget.checked;
+        mapLayersChange(
+          mapLayers.reduce(
+            (prev: { [id: string]: Partial<MapLayer> }, mapLayer) => {
+              prev[mapLayer.id] = {
+                visible,
+              };
+              return prev;
+            },
+            {},
+          ),
+        );
+      }}
+    />
+  );
+};
+
+const MapLegend = React.memo(() => {
   const [opened, { toggle }] = useDisclosure(true);
   const content = (
     <>
@@ -281,7 +311,12 @@ const MapLegend = () => {
               borderWidth: 2,
             }}
           />
-          <div>Plánovaná výstavba</div>
+          <div>
+            <div>Plánovaná výstavba</div>
+            <MapLayerVisibilitySwitch
+              mapLayerIds={['constrnFill', 'constrnStroke']}
+            />
+          </div>
           <div
             className={styles.mapLegendPolygon}
             style={{
@@ -290,11 +325,15 @@ const MapLegend = () => {
               borderWidth: 1,
             }}
           />
-          <div>Překryv plánované výstavby s parcelou</div>
+          <div>
+            <div>Překryv plánované výstavby s parcelou</div>
+            <MapLayerVisibilitySwitch mapLayerIds={['covers']} />
+          </div>
         </div>
       </div>
       <div>
         <h4>Parcely dle vlastníků</h4>
+        <MapLayerVisibilitySwitch mapLayerIds={['parcels']} />
         <div className={styles.mapLegendItems}>
           {Object.values(settings.ownerGroups).map((ownerGroup) => {
             return (
@@ -321,7 +360,7 @@ const MapLegend = () => {
       <Collapse in={opened}>{content}</Collapse>
     </div>
   );
-};
+});
 
 const InfoBar = () => {
   const fileName = useAppStore((state) => state.fileName);

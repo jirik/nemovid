@@ -25,11 +25,14 @@
   & > h3 {
     cursor: pointer;
   }
+  & > div {
+    background-color: white;
+    padding: 2px;
+  }
 }
 .mapLegendItems {
   display: grid;
   grid-template-columns: 30px auto;
-  background-color: white;
   padding: 2px;
 }
 
