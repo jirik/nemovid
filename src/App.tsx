@@ -72,6 +72,11 @@ proj4.defs(
 );
 register(proj4);
 
+type ContrnLayers = {
+  fill: WebGLVectorLayer;
+  stroke: WebGLVectorLayer;
+};
+
 const App = () => {
   const extentFeatures = useAppStore(getMainExtentFeatures);
   const areConstrnFeaturesLoaded = useAppStore(getAreConstrnFeaturesLoaded);
@@ -81,7 +86,7 @@ const App = () => {
   const parcels = useAppStore(getFilteredParcels).features;
   const covers = useAppStore(getCovers);
   const mapRef = useRef<OlMap | null>(null);
-  const constrnLayerRef = useRef<WebGLVectorLayer | null>(null);
+  const constrnLayersRef = useRef<ContrnLayers | null>(null);
   const constrnExtentLayerRef = useRef<VectorLayer | null>(null);
   const coverLayerRef = useRef<WebGLVectorLayer | null>(null);
   const parcelLayerRef = useRef<WebGLVectorLayer | null>(null);
@@ -98,15 +103,24 @@ const App = () => {
 
       const constrnStrokeColor = '#c513cd';
 
-      const constrnLayer = new WebGLVectorLayer({
-        source: new VectorSource(),
+      const constrnSource = new VectorSource();
+      const constrnFillLayer = new WebGLVectorLayer({
+        source: constrnSource,
         style: {
-          'stroke-color': constrnStrokeColor,
-          'stroke-width': 1,
           'fill-color': 'rgba(255,255,255,0.4)',
         },
       });
-      constrnLayerRef.current = constrnLayer;
+      const constrnStrokeLayer = new WebGLVectorLayer({
+        source: constrnSource,
+        style: {
+          'stroke-color': constrnStrokeColor,
+          'stroke-width': 2,
+        },
+      });
+      constrnLayersRef.current = {
+        fill: constrnFillLayer,
+        stroke: constrnStrokeLayer,
+      };
 
       const extentStyle = [
         new Style({
@@ -203,8 +217,9 @@ const App = () => {
       map.addLayer(tileLayer2);
       map.addLayer(parcelLayer);
       map.addLayer(constrnExtentLayer);
-      map.addLayer(constrnLayer);
+      map.addLayer(constrnFillLayer);
       map.addLayer(coverLayer);
+      map.addLayer(constrnStrokeLayer);
 
       map.getView().on('change:resolution', (evt) => {
         const view = evt.target as View;
@@ -235,7 +250,7 @@ const App = () => {
 
   useEffect(() => {
     assertIsDefined(mapRef.current);
-    assertIsDefined(constrnLayerRef.current);
+    assertIsDefined(constrnLayersRef.current);
     assertIsDefined(constrnExtentLayerRef.current);
     const map = mapRef.current;
     const dnd = new DragAndDrop();
@@ -294,16 +309,16 @@ const App = () => {
 
   useEffect(() => {
     assertIsDefined(mapRef.current);
-    assertIsDefined(constrnLayerRef.current);
+    assertIsDefined(constrnLayersRef.current);
     assertIsDefined(constrnExtentLayerRef.current);
     assertIsDefined(parcelLayerRef.current);
     assertIsDefined(coverLayerRef.current);
     const map = mapRef.current;
-    const constrnLayer = constrnLayerRef.current;
+    const constrnLayers = constrnLayersRef.current;
     const constrnExtentLayer = constrnExtentLayerRef.current;
     const parcelLayer = parcelLayerRef.current;
     const coverLayer = coverLayerRef.current;
-    const constrnSource = constrnLayer.getSource();
+    const constrnSource = constrnLayers.fill.getSource();
     assertIsDefined(constrnSource);
     const constrnExtentSource = constrnExtentLayer.getSource();
     assertIsDefined(constrnExtentSource);
@@ -348,9 +363,9 @@ const App = () => {
       if (!areConstrnFeaturesLoaded) {
         return;
       }
-      assertIsDefined(constrnLayerRef.current);
-      const constrnLayer = constrnLayerRef.current;
-      const constrnSource = constrnLayer.getSource();
+      assertIsDefined(constrnLayersRef.current);
+      const constrnLayers = constrnLayersRef.current;
+      const constrnSource = constrnLayers.fill.getSource();
       assertIsDefined(constrnSource);
       assertIsDefined(mainExtents);
       if (mainExtents.length > 0) {

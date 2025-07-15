@@ -276,21 +276,21 @@ const MapLegend = () => {
           <div
             className={styles.mapLegendPolygon}
             style={{
+              backgroundColor: 'rgba(255,255,255,0.4)',
+              borderColor: '#c513cd',
+              borderWidth: 2,
+            }}
+          />
+          <div>Plánovaná výstavba</div>
+          <div
+            className={styles.mapLegendPolygon}
+            style={{
               backgroundColor: 'rgba(00,200,00,0.4)',
               borderColor: '#00aa00',
               borderWidth: 1,
             }}
           />
           <div>Překryv plánované výstavby s parcelou</div>
-          <div
-            className={styles.mapLegendPolygon}
-            style={{
-              backgroundColor: 'rgba(255,255,255,0.4)',
-              borderColor: '#c513cd',
-              borderWidth: 1,
-            }}
-          />
-          <div>Plánovaná výstavba</div>
         </div>
       </div>
       <div>
