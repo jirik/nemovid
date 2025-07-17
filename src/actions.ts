@@ -1,17 +1,12 @@
 import merge from 'lodash.merge';
-import { Feature } from 'ol';
+import type { Feature } from 'ol';
 import GeoJSON from 'ol/format/GeoJSON';
-import MultiPolygon from 'ol/geom/MultiPolygon';
-import Polygon from 'ol/geom/Polygon';
+import type Polygon from 'ol/geom/Polygon';
 import { assertIsDefined } from './assert.ts';
 import { getFilter } from './codeList.ts';
 import { getParcelLabel, getParcelZoning } from './cuzk.ts';
-import {
-  type ParcelAreas,
-  ParcelCoveredAreaM2PropName,
-  ParcelCoveredAreaPercPropName,
-  ParcelHasBuildingPropName,
-} from './olutil.ts';
+
+import { type ParcelCover, ParcelHasBuildingPropName } from './olutil.ts';
 import settings from './settings.ts';
 import {
   type MapLayer,
@@ -43,7 +38,7 @@ export const fileOpened = ({
     state.titleDeeds = null;
     state.owners = null;
     state.parcelFilters = { ...defaultFilters };
-    state.parcelAreasTimestamp = null;
+    state.parcelCoversTimestamp = null;
     state.parcelInfosTimestamp = null;
     state.processedParcels = null;
   });
@@ -98,38 +93,32 @@ export const parcelsLoaded = ({ parcels }: { parcels: Feature[] }) =>
     });
   });
 
-export const parcelAreasLoaded = ({
-  parcelAreas,
-}: { parcelAreas: Record<string, ParcelAreas> }) =>
+export const parcelCoverLoaded = ({
+  parcelCover,
+}: { parcelCover: Record<string, ParcelCover> }) =>
   set((state) => {
     assertIsDefined(state.parcelFeatures);
     const format = new GeoJSON();
     const coverFeatures: { [id: string]: Feature } = {};
-    for (const [parcelId, areas] of Object.entries(parcelAreas)) {
-      const parcel = state.parcelFeatures[parcelId];
-      parcel.set(ParcelCoveredAreaM2PropName, areas.coveredAreaM2);
-      parcel.set(ParcelCoveredAreaPercPropName, areas.coveredAreaPerc);
-      const geom = format.readGeometry(areas.cover);
-      let polygons: Polygon[] = [];
-      if (geom instanceof Polygon) {
-        polygons = [geom];
-      } else if (geom instanceof MultiPolygon) {
-        polygons = geom.getPolygons();
-      } else {
-        console.error('Unsupported geometry', geom);
-      }
-      for (const polygon of polygons) {
+    for (const [parcelId, cover] of Object.entries(parcelCover)) {
+      for (const geojsonFeature of cover) {
+        const coverFeature = format.readFeature(
+          geojsonFeature,
+        ) as Feature<Polygon>;
+        const coverGeom = coverFeature.getGeometry();
+        assertIsDefined(coverGeom);
+        const coverArea = coverGeom.getArea();
         const coverId = Object.values(coverFeatures).length + 1;
-        const coverFeature = new Feature({
-          geometry: polygon,
-          parcelId: parcelId,
-        });
         coverFeature.setId(coverId);
+        coverFeature.setProperties({
+          parcelId,
+          area: coverArea,
+        });
         coverFeatures[coverId] = coverFeature;
       }
     }
     state.coverFeatures = coverFeatures;
-    state.parcelAreasTimestamp = Date.now();
+    state.parcelCoversTimestamp = Date.now();
     // @ts-ignore
     const stats = getParcelStats(state);
     assertIsDefined(stats.maxCoveredAreaM2);
@@ -154,7 +143,7 @@ export const parcelFiltersChanged = (filters: Partial<ParcelFilters>) =>
     merge(state.parcelFilters, filters);
   });
 
-export const parcelAreasProgress = (processedParcels: number) =>
+export const parcelCoverProgress = (processedParcels: number) =>
   set((state) => {
     state.processedParcels = processedParcels;
   });

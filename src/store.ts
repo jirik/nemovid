@@ -10,7 +10,7 @@ import { type CodeList, type CodeListItem, NullItem } from './codeList.ts';
 import { sortParcelByLabel } from './cuzk.ts';
 import * as olUtil from './olutil.ts';
 import {
-  ParcelCoveredAreaM2PropName,
+  ParcelOfficialAreaM2PropName,
   extentsToFeatures,
   filterParcels,
 } from './olutil.ts';
@@ -38,8 +38,9 @@ export interface State {
   zonings: Record<string, SimpleZoning> | null;
   titleDeeds: Record<string, SimpleTitleDeed> | null;
   owners: Record<string, SimpleOwner> | null;
+  coverNarrownessTolerance: number;
   highlightedParcel: string | null;
-  parcelAreasTimestamp: number | null;
+  parcelCoversTimestamp: number | null;
   parcelInfosTimestamp: number | null;
   processedParcels: number | null;
   parcelFilters: ParcelFilters;
@@ -66,10 +67,11 @@ const initialState: State = {
   parcelFeatures: null,
   zonings: null,
   titleDeeds: null,
+  coverNarrownessTolerance: 0.1,
   owners: null,
   processedParcels: null,
   highlightedParcel: null,
-  parcelAreasTimestamp: null,
+  parcelCoversTimestamp: null,
   parcelInfosTimestamp: null,
   parcelFilters: structuredClone(defaultFilters),
   codeLists: {
@@ -191,17 +193,97 @@ export const UnknownSimpleOwner: Omit<SimpleOwner, 'titleDeeds'> = {
   label: 'Neznámý vlastník (pravděpodobně nedávno změněná parcela)',
 };
 
+export const getAreParcelCoversLoaded = createAppSelector(
+  [(state) => state.parcelCoversTimestamp],
+  (parcelCoversTimestamp) => {
+    return parcelCoversTimestamp != null;
+  },
+);
+
+export type ParcelAreas = {
+  coveredAreaM2: number;
+  coveredAreaPerc: number;
+};
+
+export const getParcelCoveredAreas = createAppSelector(
+  [
+    getAreParcelCoversLoaded,
+    (state) => state.coverNarrownessTolerance,
+    (state) => state.parcelFeatures,
+    (state) => state.coverFeatures,
+  ],
+  (
+    areParcelCoversLoaded,
+    coverNarrownessTolerance,
+    parcelFeatures,
+    coverFeatures,
+  ): { [id: string]: ParcelAreas } | null => {
+    if (!areParcelCoversLoaded) {
+      return null;
+    }
+    const result: { [id: string]: ParcelAreas } = {};
+    assertIsDefined(parcelFeatures);
+    assertIsDefined(coverFeatures);
+
+    const narrowAreasM2: { [id: string]: number } = {};
+
+    for (const cover of Object.values(coverFeatures)) {
+      const parcelId = cover.get('parcelId') as string;
+      if (!(parcelId in result)) {
+        result[parcelId] = {
+          coveredAreaM2: 0,
+          coveredAreaPerc: 0,
+        };
+        narrowAreasM2[parcelId] = 0;
+      }
+      const coverArea = cover.get('area') as number;
+      const narrowness = cover.get('narrowness') as number;
+      if (narrowness < coverNarrownessTolerance) {
+        narrowAreasM2[parcelId] += coverArea;
+      } else {
+        result[parcelId].coveredAreaM2 += coverArea;
+      }
+    }
+
+    for (const [parcelId, parcelAreas] of Object.entries(result)) {
+      const parcel = parcelFeatures[parcelId];
+      const officialArea = parcel.get(ParcelOfficialAreaM2PropName) as number;
+      const totalCoveredArea =
+        parcelAreas.coveredAreaM2 + narrowAreasM2[parcelId];
+
+      // in case of small parcels that are covered only by narrow covers by at least 10 %,
+      // take area of narrow covers into account
+      let safeCoveredArea = parcelAreas.coveredAreaM2;
+      if (
+        parcelAreas.coveredAreaM2 === 0 &&
+        totalCoveredArea / officialArea > 0.1
+      ) {
+        safeCoveredArea = totalCoveredArea;
+      }
+
+      const coveredArea = Math.ceil(Math.min(safeCoveredArea, officialArea));
+      const coveredAreaRatio = Math.ceil((coveredArea / officialArea) * 100);
+      parcelAreas.coveredAreaM2 = coveredArea;
+      parcelAreas.coveredAreaPerc = coveredAreaRatio;
+    }
+
+    return result;
+  },
+);
+
 export const getFilteredParcels = createAppSelector(
   [
     (state) => state.parcels,
     (state) => state.parcelFeatures,
     (state) => state.parcelFilters,
+    getParcelCoveredAreas,
   ],
-  (parcels, features, parcelFilters) => {
+  (parcels, features, parcelFilters, parcelCoveredAreas) => {
     return filterParcels({
       models: parcels,
       features: features,
       filters: parcelFilters,
+      coveredAreas: parcelCoveredAreas,
     });
   },
 );
@@ -364,27 +446,20 @@ export const getOwners = createAppSelector([getZonings], (zonings) => {
   return Object.values(ownersDict);
 });
 
-export const getAreParcelAreasLoaded = createAppSelector(
-  [(state) => state.parcelAreasTimestamp],
-  (parcelAreasTimestamp) => {
-    return parcelAreasTimestamp != null;
-  },
-);
-
 export const getParcelStats = createAppSelector(
-  [(state) => state.parcelFeatures, getAreParcelAreasLoaded],
-  (parcels, areParcelAreasLoaded): ParcelStats => {
+  [getParcelCoveredAreas],
+  (parcelCoveredAreas): ParcelStats => {
     let result: ParcelStats = {
       maxCoveredAreaM2: null,
     };
-    if (areParcelAreasLoaded) {
+    if (parcelCoveredAreas) {
       result = {
         maxCoveredAreaM2: 0,
       };
-      for (const parcel of Object.values(parcels || {})) {
+      for (const parcelAreas of Object.values(parcelCoveredAreas || {})) {
         result.maxCoveredAreaM2 = Math.max(
           result.maxCoveredAreaM2 || 0,
-          parcel.get(ParcelCoveredAreaM2PropName),
+          parcelAreas.coveredAreaM2,
         );
       }
     }

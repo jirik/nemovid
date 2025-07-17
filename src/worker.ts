@@ -1,14 +1,12 @@
 import { GeoJSON } from 'ol/format';
 import type {
+  GeoJSONFeature,
   GeoJSONFeatureCollection,
-  GeoJSONGeometry,
 } from 'ol/format/GeoJSON';
 import VectorSource from 'ol/source/Vector';
 import {
-  type ParcelAreas,
+  type ParcelCover,
   ParcelCoverPropName,
-  ParcelCoveredAreaM2PropName,
-  ParcelCoveredAreaPercPropName,
   getIntersectedParcels,
   getParcelsByConstrnExtent,
   setParcelIntersections,
@@ -25,12 +23,12 @@ export type OutgoingMessage =
       parcels: GeoJSONFeatureCollection;
     }
   | {
-      type: 'parcelAreasProgress';
+      type: 'parcelCoverProgress';
       processedParcels: number;
     }
   | {
-      type: 'parcelAreas';
-      parcelAreas: Record<string, ParcelAreas>;
+      type: 'parcelCover';
+      parcelCover: Record<string, ParcelCover>;
     };
 
 self.onmessage = async (event) => {
@@ -68,26 +66,22 @@ self.onmessage = async (event) => {
   let processedParcels = 0;
   while (processedParcels < numParcels) {
     self.postMessage({
-      type: 'parcelAreasProgress',
+      type: 'parcelCoverProgress',
       processedParcels,
     } satisfies OutgoingMessage);
     processedParcels = progress.next().value;
   }
-  const parcelAreas = coveredParcels.reduce(
-    (prev: Record<string, ParcelAreas>, parcel) => {
+  const parcelCover = coveredParcels.reduce(
+    (prev: Record<string, ParcelCover>, parcel) => {
       const id = parcel.getId() as string;
-      prev[id] = {
-        coveredAreaM2: parcel.get(ParcelCoveredAreaM2PropName) as number,
-        coveredAreaPerc: parcel.get(ParcelCoveredAreaPercPropName) as number,
-        cover: parcel.get(ParcelCoverPropName) as GeoJSONGeometry,
-      };
+      prev[id] = parcel.get(ParcelCoverPropName) as GeoJSONFeature[];
       return prev;
     },
     {},
   );
 
   self.postMessage({
-    type: 'parcelAreas',
-    parcelAreas,
+    type: 'parcelCover',
+    parcelCover,
   } satisfies OutgoingMessage);
 };

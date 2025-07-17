@@ -1,4 +1,5 @@
 import deepEqual from 'deep-equal';
+import MaximumInscribedCircle from 'jsts/org/locationtech/jts/algorithm/construct/MaximumInscribedCircle.js';
 import type JstsGeometry from 'jsts/org/locationtech/jts/geom/Geometry.js';
 import GeometryFactory from 'jsts/org/locationtech/jts/geom/GeometryFactory.js';
 import type IntersectionMatrix from 'jsts/org/locationtech/jts/geom/IntersectionMatrix.js';
@@ -12,7 +13,7 @@ import JstsIsValidOp from 'jsts/org/locationtech/jts/operation/valid/IsValidOp.j
 import { Feature } from 'ol';
 import type { Extent } from 'ol/extent';
 import * as olExtent from 'ol/extent';
-import type { GeoJSONGeometry } from 'ol/format/GeoJSON';
+import type { GeoJSONFeature } from 'ol/format/GeoJSON';
 import WMTSCapabilities from 'ol/format/WMTSCapabilities';
 import {
   GeometryCollection,
@@ -30,6 +31,7 @@ import type VectorSource from 'ol/source/Vector';
 import WMTS, { optionsFromCapabilities } from 'ol/source/WMTS';
 import { assertIsDefined } from './assert.ts';
 import {
+  type ParcelAreas,
   type ParcelFilters,
   type SimpleParcel,
   defaultFilters,
@@ -325,41 +327,45 @@ export function* setParcelIntersections({
       }
     }
     assertIsDefined(parcelIntersection);
-    const officialArea = Number.parseInt(parcel.get('areaValue')._content_);
-    const coveredArea = Math.ceil(
-      Math.min(parcelIntersection.getArea(), officialArea),
-    );
-    const coveredAreaRatio = Math.ceil((coveredArea / officialArea) * 100);
-    parcel.set(ParcelOfficialAreaM2PropName, officialArea, true);
-    parcel.set(ParcelCoveredAreaM2PropName, coveredArea, true);
-    parcel.set(ParcelCoveredAreaPercPropName, coveredAreaRatio, true);
-    const coverGeojson: GeoJSONGeometry =
-      geojsonWriter.write(parcelIntersection);
-    parcel.set(ParcelCoverPropName, coverGeojson, true);
+    const coverGeojsonFeatures = [];
+    for (
+      let polygonIdx = 0;
+      polygonIdx < parcelIntersection.getNumGeometries();
+      polygonIdx++
+    ) {
+      const polygon = parcelIntersection.getGeometryN(polygonIdx);
+      const mic = new MaximumInscribedCircle(polygon, 0.01);
+      const narrowness: number = mic.getRadiusLine().getLength();
+      const polygonFeature: GeoJSONFeature = {
+        type: 'Feature',
+        geometry: geojsonWriter.write(polygon),
+        properties: {
+          narrowness,
+        },
+      };
+      coverGeojsonFeatures.push(polygonFeature);
+    }
+    parcel.set(ParcelCoverPropName, coverGeojsonFeatures, true);
     yield parcelIdx + 1;
   }
 }
 
 export const ParcelOfficialAreaM2PropName = 'nemovidParcelAreaM2';
-export const ParcelCoveredAreaM2PropName = 'nemovidParcelCoverM2';
-export const ParcelCoveredAreaPercPropName = 'nemovidParcelCoverPerc';
 export const ParcelCoverPropName = 'nemovidParcelCover';
 export const ParcelHasBuildingPropName = 'building';
 
-export type ParcelAreas = {
-  coveredAreaM2: number;
-  coveredAreaPerc: number;
-  cover: GeoJSONGeometry;
-};
+export type ParcelCover = GeoJSONFeature[];
 
 export const filterParcels = ({
   models,
   features,
   filters,
+  coveredAreas,
 }: {
   models: { [id: string]: SimpleParcel } | null;
   features: { [id: string]: Feature } | null;
   filters: ParcelFilters;
+  coveredAreas: { [id: string]: ParcelAreas } | null;
 }): {
   models: { [id: string]: SimpleParcel } | null;
   features: { [id: string]: Feature } | null;
@@ -375,8 +381,9 @@ export const filterParcels = ({
     };
   }
   const useAreaFilters =
-    filters.maxCoveredAreaM2 !== defaultFilters.maxCoveredAreaM2 ||
-    filters.maxCoveredAreaPerc !== defaultFilters.maxCoveredAreaPerc;
+    (filters.maxCoveredAreaM2 !== defaultFilters.maxCoveredAreaM2 ||
+      filters.maxCoveredAreaPerc !== defaultFilters.maxCoveredAreaPerc) &&
+    coveredAreas;
   const useLandUseFilter =
     filters.landUse != null &&
     !Object.values(filters.landUse).every((bool) => bool);
@@ -384,12 +391,16 @@ export const filterParcels = ({
     filters.landType != null &&
     !Object.values(filters.landType).every((bool) => bool);
   const filteredFeaturesList = Object.values(features).filter((feature) => {
-    const areaM2 = feature.get(ParcelCoveredAreaM2PropName) as number;
-    const areaPerc = feature.get(ParcelCoveredAreaPercPropName) as number;
+    const parcelId = feature.getId() as string;
+    const areaM2 = useAreaFilters ? coveredAreas[parcelId].coveredAreaM2 : 0;
+    const areaPerc = useAreaFilters
+      ? coveredAreas[parcelId].coveredAreaPerc
+      : 0;
     const hasBuilding = feature.get(ParcelHasBuildingPropName) as boolean;
     const landUseCode = feature.get('landUse') as string;
     const landTypeCode = feature.get('landType') as string;
     return (
+      (!coveredAreas || coveredAreas[parcelId].coveredAreaM2 > 0) &&
       (!useAreaFilters ||
         (areaM2 <= filters.maxCoveredAreaM2 &&
           areaPerc <= filters.maxCoveredAreaPerc)) &&

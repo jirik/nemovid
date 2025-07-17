@@ -25,8 +25,8 @@ import {
   codeListsLoaded,
   fileOpened,
   mapPointerMove,
-  parcelAreasLoaded,
-  parcelAreasProgress,
+  parcelCoverLoaded,
+  parcelCoverProgress,
   parcelsLoaded,
   titleDeedsLoaded,
 } from './actions.ts';
@@ -40,6 +40,7 @@ import {
 } from './cuzk.ts';
 import {
   ParcelHasBuildingPropName,
+  ParcelOfficialAreaM2PropName,
   assertMinExtentRadius,
   loadTileLayerFromWmtsCapabilities,
 } from './olutil.ts';
@@ -426,6 +427,10 @@ const App = () => {
               });
               const hasBuilding = !!parcel.get('building');
               parcel.set(ParcelHasBuildingPropName, hasBuilding, true);
+              const officialArea = Number.parseInt(
+                parcel.get('areaValue')._content_,
+              );
+              parcel.set(ParcelOfficialAreaM2PropName, officialArea, true);
               parcel.unset('referencePoint', true);
             }
           }
@@ -455,18 +460,18 @@ const App = () => {
                 titleDeedsLoaded({ titleDeeds, owners });
               });
             }
-          } else if (msg.type === 'parcelAreasProgress') {
+          } else if (msg.type === 'parcelCoverProgress') {
             const { processedParcels } = msg;
-            parcelAreasProgress(processedParcels);
+            parcelCoverProgress(processedParcels);
           } else {
-            parcelAreasLoaded({ parcelAreas: msg.parcelAreas });
+            parcelCoverLoaded({ parcelCover: msg.parcelCover });
           }
         };
 
         worker.postMessage(message);
       } else {
         parcelsLoaded({ parcels: [] });
-        parcelAreasLoaded({ parcelAreas: {} });
+        parcelCoverLoaded({ parcelCover: {} });
       }
     })();
   }, [areConstrnFeaturesLoaded, mainExtents]);
