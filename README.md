@@ -26,6 +26,10 @@ make files-build
 make ogr2ogr-build
 make qgis-build
 
+# start database & run migrations
+make postgres-up
+make migrate
+
 # start server containers
 make server-up
 

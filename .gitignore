@@ -22,3 +22,5 @@ src/server
 /src/settings.*
 !/src/settings.ts
 !/src/settings.default.ts
+
+/server/postgres/data

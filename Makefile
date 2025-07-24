@@ -28,6 +28,9 @@ files-bash-root:
 files-build:
 	docker compose build files
 
+files-migrate:
+	docker compose run --rm files bash -c "dbmate status && dbmate migrate"
+
 files-up:
 	docker compose up -d files
 
@@ -55,8 +58,41 @@ qgis-format:
 qgis-check:
 	docker compose run --rm qgis bash -c "source .venv/bin/activate && ruff format --check ./src && ruff check ./src && pyright ./src"
 
+postgres-ensure-data-dir:
+	mkdir -p server/postgres/data
+
+postgres-clear-data:
+	docker stop postgres | true
+	rm -rf server/postgres/data
+
+postgres-bash:
+	$(MAKE) postgres-ensure-data-dir
+	docker compose run --rm postgres bash
+
+postgres-bash-root:
+	$(MAKE) postgres-ensure-data-dir
+	docker compose run --rm -u root postgres bash
+
+postgres-psql:
+	$(MAKE) postgres-ensure-data-dir
+	docker compose run --rm postgres bash -c "psql \$$DATABASE_URL"
+
+postgres-dump-files-schema:
+	$(MAKE) postgres-ensure-data-dir
+	docker compose run --rm postgres bash -c "pg_dump \$$DATABASE_URL --schema-only --schema=files --exclude-table=files.schema_migrations > /app/files/db/schema.sql"
+
+postgres-build:
+	docker compose build postgres
+
+postgres-up:
+	$(MAKE) postgres-ensure-data-dir
+	docker compose up -d postgres
+
 server-up:
-	docker compose up -d files ogr2ogr qgis
+	docker compose up -d postgres files ogr2ogr qgis
+
+migrate:
+	$(MAKE) files-migrate
 
 format:
 	$(MAKE) files-format

@@ -11,6 +11,8 @@ services:
       command: bash -c "fastapi dev src/main.py --host 0.0.0.0"
       environment:
         - PYRIGHT_PYTHON_CACHE_DIR=/tmp
+        - DATABASE_URL=${DATABASE_URL}?search_path=files&sslmode=disable
+        - DBMATE_MIGRATIONS_DIR=./src/db/migrations
       env_file:
         - .env
       volumes:
@@ -60,3 +62,21 @@ services:
         - ./server/common/src/common:/app/common
       ports:
         - "8002:8000"
+
+   postgres:
+      container_name: postgres
+      build:
+        context: server/postgres
+        dockerfile: Dockerfile
+      image: postgres:latest
+      user: ${UID_GID}
+      volumes:
+        - ./server/postgres/data:/var/lib/postgresql/data
+        - ./server/files/src:/app/files
+      ports:
+        - "25433:5432"
+      environment:
+         - POSTGRES_USER=nemovid
+         - POSTGRES_PASSWORD=nemovid_pwd
+         - POSTGRES_DB=nemovid
+         - DATABASE_URL=${DATABASE_URL}
