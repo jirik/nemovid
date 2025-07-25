@@ -279,7 +279,11 @@ const App = () => {
         const filesClient = createFilesClient({
           baseUrl: settings.publicUrl,
         });
-        const dxfResp = await postFile({ body: { file }, client: filesClient });
+        const dxfResp = await postFile({
+          body: { file },
+          query: { label: 'dxf' },
+          client: filesClient,
+        });
         assertIsDefined(dxfResp.data);
         const dxfUrl = dxfResp.data.url;
 

@@ -5,11 +5,12 @@
       <sourceFolder url="file://$MODULE_DIR$/server/common/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/server/files/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/server/ogr2ogr/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/server/qgis/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/data" />
       <excludeFolder url="file://$MODULE_DIR$/dist" />
       <excludeFolder url="file://$MODULE_DIR$/node_modules" />
     </content>
-    <orderEntry type="jdk" jdkName="Remote Python 3.12.3 Docker Compose (statkar ogr2ogr)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Remote Python 3.12.11 Docker Compose (statkar files)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="files" />
     <orderEntry type="module" module-name="ogr2ogr" />

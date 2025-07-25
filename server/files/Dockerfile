@@ -6,7 +6,7 @@ RUN curl -fsSL -o /usr/local/bin/dbmate https://github.com/amacneil/dbmate/relea
 RUN chmod +x /usr/local/bin/dbmate
 
 RUN pip install --upgrade pip
-RUN pip install "fastapi[standard-no-fastapi-cloud-cli]" pydantic_settings ruff pyright[nodejs]
+RUN pip install "fastapi[standard-no-fastapi-cloud-cli]" pydantic_settings "psycopg[binary,pool]" ruff pyright[nodejs]
 
 RUN mkdir /app
 WORKDIR /app

@@ -31,17 +31,17 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
--- Name: files; Type: TABLE; Schema: files; Owner: nemovid
+-- Name: file; Type: TABLE; Schema: files; Owner: nemovid
 --
 
-CREATE TABLE files.files (
+CREATE TABLE files.file (
     id integer NOT NULL,
     uuid uuid NOT NULL,
     label character varying(127) NOT NULL
 );
 
 
-ALTER TABLE files.files OWNER TO nemovid;
+ALTER TABLE files.file OWNER TO nemovid;
 
 --
 -- Name: files_id_seq; Type: SEQUENCE; Schema: files; Owner: nemovid
@@ -62,29 +62,29 @@ ALTER SEQUENCE files.files_id_seq OWNER TO nemovid;
 -- Name: files_id_seq; Type: SEQUENCE OWNED BY; Schema: files; Owner: nemovid
 --
 
-ALTER SEQUENCE files.files_id_seq OWNED BY files.files.id;
+ALTER SEQUENCE files.files_id_seq OWNED BY files.file.id;
 
 
 --
--- Name: files id; Type: DEFAULT; Schema: files; Owner: nemovid
+-- Name: file id; Type: DEFAULT; Schema: files; Owner: nemovid
 --
 
-ALTER TABLE ONLY files.files ALTER COLUMN id SET DEFAULT nextval('files.files_id_seq'::regclass);
+ALTER TABLE ONLY files.file ALTER COLUMN id SET DEFAULT nextval('files.files_id_seq'::regclass);
 
 
 --
--- Name: files files_pkey; Type: CONSTRAINT; Schema: files; Owner: nemovid
+-- Name: file files_pkey; Type: CONSTRAINT; Schema: files; Owner: nemovid
 --
 
-ALTER TABLE ONLY files.files
+ALTER TABLE ONLY files.file
     ADD CONSTRAINT files_pkey PRIMARY KEY (id);
 
 
 --
--- Name: files files_uuid_key; Type: CONSTRAINT; Schema: files; Owner: nemovid
+-- Name: file files_uuid_key; Type: CONSTRAINT; Schema: files; Owner: nemovid
 --
 
-ALTER TABLE ONLY files.files
+ALTER TABLE ONLY files.file
     ADD CONSTRAINT files_uuid_key UNIQUE (uuid);
 
 
