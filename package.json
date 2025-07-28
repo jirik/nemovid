@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -b && vite build",
-    "check": "biome check --write && npx tsc --noEmit",
+    "check": "biome check --write && npx tsc --build --noEmit",
     "dev": "vite --open",
     "dev-headless": "vite",
     "format": "biome format --write",
