@@ -18,7 +18,6 @@ import VectorSource from 'ol/source/Vector';
 import { Stroke, Style } from 'ol/style';
 import proj4 from 'proj4';
 import { useEffect, useRef } from 'react';
-import { MIN_MAIN_EXTENT_RADIUS_PX } from '../constants.ts';
 import InfoBar from './InfoBar.tsx';
 import DragAndDrop from './MapDragAndDrop.ts';
 import {
@@ -31,6 +30,7 @@ import {
   titleDeedsLoaded,
 } from './actions.ts';
 import { assertFeature, assertIsDefined } from './assert.ts';
+import { MIN_MAIN_EXTENT_RADIUS_PX } from './constants.ts';
 import {
   fetchCodeList,
   getParcelsByExtent,
