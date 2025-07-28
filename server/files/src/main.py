@@ -5,7 +5,7 @@ import time
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -23,7 +23,7 @@ def get_hello():
 
 
 # Configuration
-MAX_FILE_SIZE_MB: int = 100
+MAX_FILE_SIZE_MB: int = 200
 UPLOAD_DIRECTORY: str = settings.files_dir_path
 Path(UPLOAD_DIRECTORY).mkdir(parents=True, exist_ok=True)
 
@@ -63,42 +63,57 @@ def clean_up_old_files(*, label: str):
 @app.post(
     "/api/files/v1/files",
     summary="Upload a File",
-    operation_id="post_file",
+    operation_id="post_files",
     responses={
-        200: {"model": PostFileResponse, "description": "File uploaded successfully!"},
-        400: {"description": "Unsupported file"},
+        200: {
+            "model": list[PostFileResponse],
+            "description": "Files uploaded successfully!",
+        },
+        400: {"description": "Unsupported files"},
         413: {"description": "File size exceeds limit"},
-        500: {"description": "An error occurred while uploading the file"},
+        500: {"description": "An error occurred while uploading files"},
     },
 )
-async def post_file(label: str, file: UploadFile = File(...)):
+async def post_files(label: str, files: list[UploadFile]):
     """
     Endpoint to upload a file.
     """
     unique_directory_path = None
 
-    if file.size is None or file.size > MAX_FILE_SIZE_MB * 1024 * 1024:
+    if any(
+        file.size is None or file.size > MAX_FILE_SIZE_MB * 1024 * 1024
+        for file in files
+    ):
         raise HTTPException(status_code=413, detail="File size exceeds limit.")
 
+    if len(files) == 0:
+        raise HTTPException(status_code=400, detail="Empty list of files.")
+
     # Sanitize the filename
-    if file.filename is None:
+    if any(file.filename is None for file in files):
         raise HTTPException(
             status_code=400,
             detail="File without exception is not supported.",
         )
 
-    sanitized_filename = Path(file.filename).name
+    sanitized_filenames = {
+        (file.filename or ""): Path(file.filename or "").name for file in files
+    }
 
     # Validate file content type
     if not any(
-        label == supported_label
-        and file.content_type == supported_mime
-        and sanitized_filename.endswith(supported_ext)
-        for supported_ext, supported_mime, supported_label in settings.supported_file_types
+        (len(files) == 1 or supports_multiple)
+        and label == supported_label
+        and all(file.content_type == supported_mime for file in files)
+        and all(
+            sanitized_filename.endswith(supported_ext)
+            for sanitized_filename in sanitized_filenames.values()
+        )
+        for supported_ext, supported_mime, supported_label, supports_multiple in settings.supported_file_types
     ):
         raise HTTPException(
             status_code=400,
-            detail=f"Unsupported combination of file label, type and extension: {label} {file.content_type} {sanitized_filename}",
+            detail=f"Unsupported combination of label, file types and names: {label} {[file.content_type for file in files]} {sanitized_filenames.values()}",
         )
 
     try:
@@ -106,26 +121,31 @@ async def post_file(label: str, file: UploadFile = File(...)):
             clean_up_old_files(label=label)
 
         # Generate a unique directory for the upload
-        file_uuid = uuid.uuid4()
-        unique_directory_name = file_uuid.hex
+        dir_uuid = uuid.uuid4()
+        unique_directory_name = dir_uuid.hex
         unique_directory_path = Path(UPLOAD_DIRECTORY) / unique_directory_name
         unique_directory_path.mkdir(parents=True, exist_ok=True)
 
-        db_util.insert_file(uuid=file_uuid, label=label)
+        db_util.insert_file(uuid=dir_uuid, label=label)
 
-        # Construct the full file path
-        file_path = unique_directory_path / sanitized_filename
+        result: list[PostFileResponse] = []
+        for file in files:
+            sanitized_filename = sanitized_filenames[file.filename or ""]
 
-        # Save the uploaded file
-        with file_path.open("wb") as buffer:
-            while chunk := file.file.read(1024 * 1024):
-                buffer.write(chunk)
+            # Construct the full file path
+            file_path = unique_directory_path / sanitized_filename
 
-        # Construct the public URL
-        public_url = file_path_to_static_url(str(file_path))
+            # Save the uploaded file
+            with file_path.open("wb") as buffer:
+                while chunk := file.file.read(1024 * 1024):
+                    buffer.write(chunk)
 
-        # Return response with public URL
-        return PostFileResponse(filename=sanitized_filename, url=public_url)
+            # Construct the public URL
+            public_url = file_path_to_static_url(str(file_path))
+
+            # Return response with public URL
+            result.append(PostFileResponse(filename=sanitized_filename, url=public_url))
+        return result
 
     except Exception as e:
         logging.error("Error occurred while uploading file", exc_info=True)

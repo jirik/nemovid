@@ -1,0 +1,9 @@
+.dragDrop {
+  border: 1px dashed gray;
+  margin: auto;
+  padding: 10vh;
+}
+
+.active {
+  border-color: dodgerblue;
+}

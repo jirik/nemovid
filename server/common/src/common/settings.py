@@ -14,10 +14,11 @@ class Settings(BaseSettings):
     # files
     static_files_url_path: str = "/static/files"
     files_dir_path: str = "/data/files"
-    supported_file_types: set[tuple[str, str, str]] = {
-        # extension, mime type, label
-        (".dxf", "application/octet-stream", "dxf"),
-        (".dxf", "image/vnd.dxf", "dxf"),
+    supported_file_types: set[tuple[str, str, str, bool]] = {
+        # extension, mime type, label, multiple?
+        (".dxf", "application/octet-stream", "dxf", False),
+        (".dxf", "image/vnd.dxf", "dxf", False),
+        (".zip", "application/zip", "vfk", True),
     }
     files_ttl_by_label: dict[str, int] = {
         "dxf": 7 * 24 * 60 * 60,

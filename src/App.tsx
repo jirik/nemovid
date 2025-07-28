@@ -44,7 +44,7 @@ import {
   assertMinExtentRadius,
   loadTileLayerFromWmtsCapabilities,
 } from './olutil.ts';
-import { postFile } from './server/files';
+import { postFiles } from './server/files';
 import { createClient as createFilesClient } from './server/files/client';
 import { dxfToGeojson } from './server/ogr2ogr';
 import { createClient as createOgr2ogrClient } from './server/ogr2ogr/client';
@@ -279,13 +279,13 @@ const App = () => {
         const filesClient = createFilesClient({
           baseUrl: settings.publicUrl,
         });
-        const dxfResp = await postFile({
-          body: { file },
+        const dxfResp = await postFiles({
+          body: { files: [file] },
           query: { label: 'dxf' },
           client: filesClient,
         });
         assertIsDefined(dxfResp.data);
-        const dxfUrl = dxfResp.data.url;
+        const dxfUrl = dxfResp.data[0].url;
 
         const ogr2ogrClient = createOgr2ogrClient({
           baseUrl: settings.publicUrl,
