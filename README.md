@@ -20,6 +20,7 @@ cd nemovid
 
 # use default settings, or adjust it to your own needs
 cp .env.default .env
+cp src/settings/settings.default.ts src/settings/settings.ts 
 
 # build backend docker images
 make files-build

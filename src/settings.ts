@@ -1,11 +1,4 @@
-const settingsName = import.meta.env.PUBLIC_SETTINGS_NAME;
-
-const inputSettings = require(`${settingsName}`).default as InputSettings;
-
-console.log(
-  `using settings from module ${settingsName} located at ${require.resolve(`${settingsName}`)}`,
-  inputSettings,
-);
+import inputSettings from './settings/settings.ts';
 
 const settings: Settings = {
   ...inputSettings,

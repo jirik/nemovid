@@ -1,4 +1,4 @@
-import type { InputSettings } from './settings.ts';
+import type { InputSettings } from './../settings.ts';
 
 export default {
   parcelRestUrlTemplate: null,

@@ -15,12 +15,12 @@ dist/
 __pycache__
 
 
+# Nemovid
 /data
 .env
 
-src/server
-/src/settings.*
-!/src/settings.ts
-!/src/settings.default.ts
+/src/server
+/src/settings/settings.*
+!/src/settings/settings.default.ts
 
 /server/postgres/data

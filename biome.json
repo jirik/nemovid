@@ -21,6 +21,11 @@
       "cssModules": true
     }
   },
+  "json": {
+    "parser": {
+      "allowComments": true
+    }
+  },
   "linter": {
     "enabled": true,
     "rules": {

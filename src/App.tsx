@@ -452,7 +452,9 @@ const App = () => {
           constrns,
           parcels,
         };
-        const worker = new Worker(new URL('./worker.ts', import.meta.url));
+        const worker = new Worker(new URL('./worker.ts', import.meta.url), {
+          type: 'module',
+        });
 
         worker.onmessage = async (event) => {
           const msg = event.data as OutgoingMessage;
