@@ -285,7 +285,7 @@ const App = () => {
           client: filesClient,
         });
         assertIsDefined(dxfResp.data);
-        const dxfUrl = dxfResp.data[0].url;
+        const dxfUrl = dxfResp.data.files[0].url;
 
         const ogr2ogrClient = createOgr2ogrClient({
           baseUrl: settings.publicUrl,

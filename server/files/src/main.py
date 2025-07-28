@@ -3,14 +3,17 @@ import os
 import shutil
 import time
 import uuid
+import zipfile
 from pathlib import Path
+from typing import Annotated, List, Optional
 
 from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import Path as FastApiPath
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl
 
 from common.cmd import run_cmd
-from common.files import file_path_to_static_url
+from common.files import file_path_to_static_url, static_url_to_file_path
 from common.settings import settings
 from db import util as db_util
 
@@ -35,10 +38,16 @@ app.mount(
 )
 
 
-# Define response model
-class PostFileResponse(BaseModel):
+class ListedFile(BaseModel):
     filename: str
     url: str
+    archived_file_paths: Optional[list[str]] = None
+
+
+# Define response model
+class PostFilesResponse(BaseModel):
+    files: list[ListedFile]
+    dirname: str
 
 
 def clean_up_old_files(*, label: str):
@@ -62,11 +71,11 @@ def clean_up_old_files(*, label: str):
 
 @app.post(
     "/api/files/v1/files",
-    summary="Upload a File",
+    summary="Upload Files",
     operation_id="post_files",
     responses={
         200: {
-            "model": list[PostFileResponse],
+            "model": PostFilesResponse,
             "description": "Files uploaded successfully!",
         },
         400: {"description": "Unsupported files"},
@@ -76,7 +85,7 @@ def clean_up_old_files(*, label: str):
 )
 async def post_files(label: str, files: list[UploadFile]):
     """
-    Endpoint to upload a file.
+    Endpoint to upload files.
     """
     unique_directory_path = None
 
@@ -128,7 +137,7 @@ async def post_files(label: str, files: list[UploadFile]):
 
         db_util.insert_file(uuid=dir_uuid, label=label)
 
-        result: list[PostFileResponse] = []
+        listed_files: list[ListedFile] = []
         for file in files:
             sanitized_filename = sanitized_filenames[file.filename or ""]
 
@@ -144,8 +153,8 @@ async def post_files(label: str, files: list[UploadFile]):
             public_url = file_path_to_static_url(str(file_path))
 
             # Return response with public URL
-            result.append(PostFileResponse(filename=sanitized_filename, url=public_url))
-        return result
+            listed_files.append(ListedFile(filename=sanitized_filename, url=public_url))
+        return PostFilesResponse(files=listed_files, dirname=unique_directory_name)
 
     except Exception as e:
         logging.error("Error occurred while uploading file", exc_info=True)
@@ -155,3 +164,100 @@ async def post_files(label: str, files: list[UploadFile]):
             status_code=500,
             detail=f"An error occurred while uploading the file: {str(e)}",
         )
+
+
+@app.get(
+    "/api/files/v1/directories/{directory_name}/list",
+    summary="List files in directory",
+    operation_id="list_directory_files",
+    responses={
+        200: {
+            "model": list[ListedFile],
+            "description": "List of files including archived files",
+        },
+        404: {"description": "Directory does not exist"},
+    },
+)
+async def list_directory_files(
+    directory_name: Annotated[
+        str, FastApiPath(min_length=32, max_length=32, pattern="^[a-f0-9]+$")
+    ],
+):
+    directory_path = Path(UPLOAD_DIRECTORY) / directory_name
+
+    if not os.path.exists(directory_path) or not os.path.isdir(directory_path):
+        raise HTTPException(status_code=404, detail="Directory does not exist")
+
+    file_names = [
+        fn for fn in os.listdir(directory_path) if os.path.isfile(directory_path / fn)
+    ]
+    result: List[ListedFile] = []
+    for file_name in file_names:
+        file_ext = os.path.splitext(file_name)[-1].lower()
+        file_path = os.path.join(directory_path, file_name)
+        result_item = ListedFile(
+            filename=file_name, url=file_path_to_static_url(file_path)
+        )
+        if file_ext in {".zip"}:
+            with zipfile.ZipFile(file_path, "r") as zip_file:
+                archived_file_paths = zip_file.namelist()
+                result_item.archived_file_paths = archived_file_paths
+        result.append(result_item)
+
+    return result
+
+
+class ArchivedFile(BaseModel):
+    url: HttpUrl
+    archived_file_path: str
+
+
+@app.post(
+    "/api/files/v1/files/unzip",
+    summary="Unzip Files",
+    operation_id="unzip_files",
+    responses={
+        200: {
+            "model": list[ListedFile],
+            "description": "Files unzipped successfully",
+        },
+        404: {"description": "File does not exist"},
+        400: {"description": "File is not archive"},
+    },
+)
+async def unzip_files(archived_files: list[ArchivedFile]):
+    """
+    Endpoint to unzip files.
+    """
+    # checks
+    for file in archived_files:
+        extension = os.path.splitext(file.url.path or "")[-1].lower()
+        if extension not in {".zip"}:
+            raise HTTPException(
+                status_code=400, detail=f"File extension is not an archive: {file.url}"
+            )
+        real_path = static_url_to_file_path(file.url)
+        if not os.path.exists(real_path) or not os.path.isfile(real_path):
+            raise HTTPException(
+                status_code=404, detail=f"File does not exist: {file.url}"
+            )
+
+    result: list[ListedFile] = []
+    for file in archived_files:
+        real_path = static_url_to_file_path(file.url)
+        result_dir = os.path.dirname(real_path)
+        result_file_name = os.path.basename(file.archived_file_path)
+
+        new_file_path = os.path.join(result_dir, result_file_name)
+        if os.path.exists(new_file_path):
+            continue
+
+        with zipfile.ZipFile(real_path) as zipFile:
+            zipFile.extract(file.archived_file_path, result_dir)
+        result.append(
+            ListedFile(
+                filename=result_file_name, url=file_path_to_static_url(new_file_path)
+            )
+        )
+
+    return result

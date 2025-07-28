@@ -1,6 +1,7 @@
 import { Button } from '@mantine/core';
 import { type ReactNode, useEffect, useState } from 'react';
 import React from 'react';
+import { getExtension } from '../filesystem.ts';
 import classes from './DragAndDrop.module.css';
 
 const filterByExtension = (files: File[], extensions: string[]) => {
@@ -9,7 +10,7 @@ const filterByExtension = (files: File[], extensions: string[]) => {
   }
   const lowerExtensions = extensions.map((e) => e.toLowerCase());
   return files.filter((file) => {
-    const extension = `.${file.name.toLowerCase().split('.').pop()}`;
+    const extension = getExtension(file.name);
     return lowerExtensions.includes(extension);
   });
 };

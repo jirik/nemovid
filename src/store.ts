@@ -4,9 +4,9 @@ import { memoize } from 'proxy-memoize';
 import { createSelector } from 'reselect';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
-import { MIN_FEATURE_EXTENT_RADIUS } from './constants.ts';
 import { assertIsDefined } from './assert.ts';
 import { type CodeList, type CodeListItem, NullItem } from './codeList.ts';
+import { MIN_FEATURE_EXTENT_RADIUS } from './constants.ts';
 import { sortParcelByLabel } from './cuzk.ts';
 import * as olUtil from './olutil.ts';
 import {
