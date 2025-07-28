@@ -20,7 +20,7 @@ class Settings(BaseSettings):
         (".dxf", "image/vnd.dxf", "dxf"),
     }
     files_ttl_by_label: dict[str, int] = {
-        'dxf': 7 * 24 * 60 * 60,
+        "dxf": 7 * 24 * 60 * 60,
     }
 
 
