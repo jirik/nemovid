@@ -63,6 +63,23 @@ services:
       ports:
         - "8002:8000"
 
+   vfk:
+      container_name: vfk
+      image: files:latest
+      user: ${UID_GID}
+      command: bash -c "fastapi dev src/main.py --host 0.0.0.0"
+      environment:
+        - PYRIGHT_PYTHON_CACHE_DIR=/tmp
+      env_file:
+        - .env
+      volumes:
+        - ./data:/data
+        - ./server/vfk/src:/app/src
+        - ./server/common/ruff.toml:/app/ruff.toml
+        - ./server/common/src/common:/app/common
+      ports:
+        - "8003:8000"
+
    postgres:
       container_name: postgres
       build:

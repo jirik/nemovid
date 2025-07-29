@@ -6,6 +6,7 @@
       <module fileurl="file://$PROJECT_DIR$/.idea/nemovid.iml" filepath="$PROJECT_DIR$/.idea/nemovid.iml" />
       <module fileurl="file://$PROJECT_DIR$/server/ogr2ogr/.idea/ogr2ogr.iml" filepath="$PROJECT_DIR$/server/ogr2ogr/.idea/ogr2ogr.iml" />
       <module fileurl="file://$PROJECT_DIR$/server/qgis/.idea/qgis.iml" filepath="$PROJECT_DIR$/server/qgis/.idea/qgis.iml" />
+      <module fileurl="file://$PROJECT_DIR$/server/vfk/.idea/vfk.iml" filepath="$PROJECT_DIR$/server/vfk/.idea/vfk.iml" />
     </modules>
   </component>
 </project>

@@ -26,7 +26,7 @@ def get_hello():
 
 
 # Configuration
-MAX_FILE_SIZE_MB: int = 200
+MAX_FILE_SIZE_MB: int = 500
 UPLOAD_DIRECTORY: str = settings.files_dir_path
 Path(UPLOAD_DIRECTORY).mkdir(parents=True, exist_ok=True)
 

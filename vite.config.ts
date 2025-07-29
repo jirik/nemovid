@@ -10,6 +10,7 @@ export default defineConfig({
       '/api/files': 'http://localhost:8000',
       '/api/ogr2ogr': 'http://localhost:8001',
       '/api/qgis': 'http://localhost:8002',
+      '/api/vfk': 'http://localhost:8003',
       '/static/files': 'http://localhost:8000',
     },
   },

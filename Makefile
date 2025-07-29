@@ -40,6 +40,30 @@ files-format:
 files-check:
 	docker compose run --rm files bash -c "ruff format --check && ruff check && pyright"
 
+vfk-bash:
+	docker compose run --rm vfk bash
+
+vfk-bash-exec:
+	docker compose exec vfk bash
+
+vfk-bash-root:
+	docker compose run --rm -u root vfk bash
+
+vfk-build:
+	docker compose build vfk
+
+vfk-migrate:
+	docker compose run --rm vfk bash -c "dbmate status && dbmate migrate"
+
+vfk-up:
+	docker compose up -d vfk
+
+vfk-format:
+	docker compose run --rm vfk bash -c "ruff format && ruff check --fix"
+
+vfk-check:
+	docker compose run --rm vfk bash -c "ruff format --check && ruff check && pyright"
+
 qgis-bash:
 	docker compose run --rm qgis bash -c 'source .venv/bin/activate && bash'
 
@@ -89,7 +113,7 @@ postgres-up:
 	docker compose up -d postgres
 
 server-up:
-	docker compose up -d postgres files ogr2ogr qgis
+	docker compose up -d postgres files ogr2ogr qgis vfk
 
 migrate:
 	$(MAKE) files-migrate
@@ -98,12 +122,14 @@ format:
 	$(MAKE) files-format
 	$(MAKE) ogr2ogr-format
 	$(MAKE) qgis-format
+	$(MAKE) vfk-format
 	npm run format
 
 check:
 	$(MAKE) files-check
 	$(MAKE) ogr2ogr-check
 	$(MAKE) qgis-check
+	$(MAKE) vfk-check
 	npm run check
 
 dev:
@@ -121,3 +147,4 @@ generate-typescript:
 	npx @hey-api/openapi-ts -i http://localhost:8000/openapi.json -o src/server/files/
 	npx @hey-api/openapi-ts -i http://localhost:8001/openapi.json -o src/server/ogr2ogr/
 	npx @hey-api/openapi-ts -i http://localhost:8002/openapi.json -o src/server/qgis/
+	npx @hey-api/openapi-ts -i http://localhost:8003/openapi.json -o src/server/vfk/
