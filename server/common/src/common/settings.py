@@ -1,4 +1,6 @@
-from pydantic import Field, HttpUrl, PostgresDsn
+from urllib.parse import urlparse
+
+from pydantic import Field, HttpUrl, PostgresDsn, field_serializer
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -23,6 +25,14 @@ class Settings(BaseSettings):
     files_ttl_by_label: dict[str, int] = {
         "dxf": 7 * 24 * 60 * 60,
     }
+
+    @field_serializer("database_url")
+    def serialize_redacted_url(self, database_url: PostgresDsn):
+        db_url = urlparse(str(database_url))
+        if db_url.password is not None:
+            host_info = db_url.netloc.rpartition("@")[-1]
+            db_url = db_url._replace(netloc=f"{db_url.username}:***@{host_info}")
+        return db_url.geturl()
 
 
 settings = Settings()
