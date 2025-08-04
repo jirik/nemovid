@@ -8,12 +8,14 @@ export interface State {
   dbImports: CadastralImport[] | null;
   inputFileNames: string[] | null;
   vfkFilesMetadata: VfkMetadata[] | null;
+  zoningNames: { [zoningId: string]: string };
 }
 
 const initialState: State = {
   dbImports: null,
   inputFileNames: null,
   vfkFilesMetadata: null,
+  zoningNames: {},
 };
 
 type Setter = {
@@ -27,9 +29,11 @@ export const useAppStore = create<State & Setter>()(
 const createAppSelector = createSelector.withTypes<State>();
 
 export const getAllZoningNames = createAppSelector(
-  [(state) => state.dbImports],
-  (imports) => {
-    const result: { [zoningId: string]: string } = {};
+  [(state) => state.dbImports, (state) => state.zoningNames],
+  (imports, zoningNames) => {
+    const result: { [zoningId: string]: string } = {
+      ...zoningNames,
+    };
     for (const dbImport of imports || []) {
       result[dbImport.zoning_id] = dbImport.zoning_name;
     }

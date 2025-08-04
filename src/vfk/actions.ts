@@ -19,3 +19,13 @@ export const vfkFilesExtracted = ({ metadata }: { metadata: VfkMetadata[] }) =>
   set((state) => {
     state.vfkFilesMetadata = metadata;
   });
+
+export const zoningNamesLoaded = ({
+  names,
+}: { names: { [zoningId: string]: string } }) =>
+  set((state) => {
+    state.zoningNames = {
+      ...state.zoningNames,
+      ...names,
+    };
+  });

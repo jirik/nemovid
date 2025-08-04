@@ -263,3 +263,27 @@ export const updateCodeListProp = ({
   }
   feature.set(propName, itemCode, true);
 };
+
+export const getZoningNames = async (ids: string[]) => {
+  const requests = ids.map((id) => {
+    return fetch(
+      `https://services.cuzk.cz/wfs/inspire-CP-wfs.asp?service=wfs&version=2.0.0&request=getPropertyValue&storedQuery_id=GetZoningById&ZONING_ID=${id}&valueReference=.//cp:label`,
+    );
+  });
+  const domParser = new window.DOMParser();
+  const responses = await Promise.all(requests);
+  const resultStrings = await Promise.all(responses.map((resp) => resp.text()));
+  const names = resultStrings.map((resString) => {
+    const doc = domParser.parseFromString(resString, 'text/xml');
+    const els = doc.getElementsByTagName('member');
+    const name = els.length > 0 ? els[0].textContent : null;
+    return name;
+  });
+  const result: { [id: string]: string } = {};
+  for (const [idx, name] of names.entries()) {
+    if (name != null) {
+      result[ids[idx]] = name;
+    }
+  }
+  return result;
+};

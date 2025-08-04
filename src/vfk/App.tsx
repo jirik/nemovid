@@ -4,13 +4,19 @@ import './App.css';
 import { Container, MantineProvider, Table, createTheme } from '@mantine/core';
 import { useCallback, useEffect } from 'react';
 import { assertIsDefined } from '../assert.ts';
+import { getZoningNames } from '../cuzk.ts';
 import { postFiles } from '../server/files';
 import { createClient as createFilesClient } from '../server/files/client';
 import { getFilesMetadata, listDbImports } from '../server/vfk';
 import settings from '../settings.ts';
 import styles from './App.module.css';
 import DragAndDrop from './DragAndDrop.tsx';
-import { dbImportsLoaded, filesOpened, vfkFilesExtracted } from './actions.ts';
+import {
+  dbImportsLoaded,
+  filesOpened,
+  vfkFilesExtracted,
+  zoningNamesLoaded,
+} from './actions.ts';
 import { extractVfkFiles } from './api.ts';
 import { getAllZoningNames, useAppStore } from './store.ts';
 
@@ -68,35 +74,46 @@ const App = () => {
     dbImportsJsx = <p>Zjišťuji informace z databáze</p>;
   }
 
-  const onFilesSelected = useCallback((files: File[]) => {
-    (async () => {
-      if (!files.length) {
-        return;
-      }
-      const fileNames = files.map((file) => file.name);
-      filesOpened({ names: fileNames });
-      const uploadResp = await postFiles({
-        body: { files },
-        query: { label: 'vfk' },
-        client: filesClient,
-      });
-      assertIsDefined(uploadResp.data);
-      const dirname = uploadResp.data.dirname;
+  const onFilesSelected = useCallback(
+    (files: File[]) => {
+      (async () => {
+        if (!files.length) {
+          return;
+        }
+        const fileNames = files.map((file) => file.name);
+        filesOpened({ names: fileNames });
+        const uploadResp = await postFiles({
+          body: { files },
+          query: { label: 'vfk' },
+          client: filesClient,
+        });
+        assertIsDefined(uploadResp.data);
+        const dirname = uploadResp.data.dirname;
 
-      const vfkFiles = await extractVfkFiles(dirname);
+        const vfkFiles = await extractVfkFiles(dirname);
 
-      const vfkMetadataResp = await getFilesMetadata({
-        body: vfkFiles.map((vfkFile) => ({
-          url: vfkFile.url,
-          archived_file_path: vfkFile.archivedPath || null,
-        })),
-        client: vfkClient,
-      });
-      assertIsDefined(vfkMetadataResp.data);
-      const vfkFilesMetadata = vfkMetadataResp.data;
-      vfkFilesExtracted({ metadata: vfkFilesMetadata });
-    })();
-  }, []);
+        const vfkMetadataResp = await getFilesMetadata({
+          body: vfkFiles.map((vfkFile) => ({
+            url: vfkFile.url,
+            archived_file_path: vfkFile.archivedPath || null,
+          })),
+          client: vfkClient,
+        });
+        assertIsDefined(vfkMetadataResp.data);
+        const vfkFilesMetadata = vfkMetadataResp.data;
+        vfkFilesExtracted({ metadata: vfkFilesMetadata });
+
+        const unknownZoningNames = vfkFilesMetadata
+          .map((md) => md.zoning_id)
+          .filter(
+            (zoning_id) => zoning_id != null && !(zoning_id in allZoningNames),
+          ) as string[];
+        const zoningNames = await getZoningNames(unknownZoningNames);
+        zoningNamesLoaded({ names: zoningNames });
+      })();
+    },
+    [allZoningNames],
+  );
 
   const inputFilesJsx: React.ReactNode =
     inputFileNames === null ? (
@@ -106,7 +123,7 @@ const App = () => {
       />
     ) : (
       <div>
-        Vstupní soubory
+        <strong>Vstupní soubory</strong>
         <ul>
           {inputFileNames.map((fn) => (
             <li key={fn}>{fn}</li>
@@ -119,7 +136,7 @@ const App = () => {
   const vfkFilesJsx: React.ReactNode =
     vfkFilesMetadata === null ? null : (
       <div>
-        Nalezená data z katastru nemovitostí
+        <strong>Nalezená data z katastru nemovitostí</strong>
         <Table className={styles.table}>
           <Table.Thead>
             <Table.Tr>
