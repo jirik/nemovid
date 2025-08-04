@@ -1,5 +1,6 @@
 import '@mantine/core/styles.css';
 import 'ol/ol.css';
+import './global.css';
 import './App.css';
 import { MantineProvider, createTheme } from '@mantine/core';
 import type { Feature } from 'ol';

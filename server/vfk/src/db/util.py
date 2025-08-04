@@ -19,6 +19,7 @@ def run_statement(query: Query, params: Params | None = None):
 @dataclass(kw_only=True)
 class CadastralImport:
     zoning_id: str
+    zoning_name: str
     valid_date: datetime.date
 
 
@@ -35,10 +36,42 @@ where catalog_name=%s and schema_owner=%s and schema_name ~ '^ku\d{6}_\d{8}$'
             settings.database_url.hosts()[0]["username"],
         ),
     )
+    zonings: dict[str, tuple[str, datetime.date]] = {}
+
+    for row in rows:
+        schema_name = row[0]
+        zoning_id, date_str = schema_name[2:].split("_")
+        zonings[zoning_id] = (schema_name, datetime.date.fromisoformat(date_str))
+
+    rows = run_query(
+        sql.SQL(" UNION ALL ").join(
+            sql.Composed(
+                [
+                    sql.SQL(r"""
+(
+SELECT {kukod}, nazev
+from {katuze}
+where kod={kukod}
+)
+""").format(
+                        katuze=sql.Identifier(schema_name, "katuze"),
+                        kukod=sql.Literal(int(zoning_id)),
+                    )
+                    for zoning_id, (schema_name, _) in zonings.items()
+                ]
+            )
+        )
+    )
+
     result = []
     for row in rows:
-        zoning_id, date_str = row[0][2:].split("_")
-        import_date = datetime.date.fromisoformat(date_str)
-        result.append(CadastralImport(zoning_id=zoning_id, valid_date=import_date))
+        zoning_id = f"{row[0]}"
+        zoning_name = row[1]
+        import_date = zonings[zoning_id][1]
+        result.append(
+            CadastralImport(
+                zoning_id=zoning_id, valid_date=import_date, zoning_name=zoning_name
+            )
+        )
 
     return result

@@ -24,6 +24,7 @@ def get_hello():
 
 class CadastralImport(BaseModel):
     zoning_id: str
+    zoning_name: str
     valid_date: date
 
 
@@ -52,6 +53,14 @@ def _get_valid_date(head_lines: list[str]) -> date:
     datetime_str = valid_match.group("from")
     dt = datetime.strptime(datetime_str, "%d.%m.%Y %H:%M:%S")
     return dt.date()
+
+
+def _get_zoning_id(head_lines: list[str]) -> str:
+    zoning_line = next(ln for ln in head_lines if ln.startswith("&DKATUZE;"))
+    parts = zoning_line.split(";")
+    assert len(parts) > 1
+    zoning_id = parts[1]
+    return zoning_id
 
 
 def _check_vfk_file_head(head_lines: list[str]) -> list[str]:
@@ -111,6 +120,7 @@ class VfkMetadata(BaseModel):
     file: FileUrl
     problems: list[str]
     valid_date: Optional[date] = None
+    zoning_id: Optional[str] = None
 
 
 @app.post(
@@ -130,7 +140,7 @@ async def get_files_metadata(files: list[FileUrl]):
     for file in files:
         file_path = static_url_to_file_path(file.url)
         if file.archived_file_path is None:
-            with open(file_path, "b") as input_file:
+            with open(file_path, "rb") as input_file:
                 head = [next(input_file) for _ in range(lines_to_read)]
         else:
             with zipfile.ZipFile(file_path, "r") as zip_file:
@@ -141,5 +151,6 @@ async def get_files_metadata(files: list[FileUrl]):
         md = VfkMetadata(file=file, problems=problems)
         if not problems:
             md.valid_date = _get_valid_date(head)
+            md.zoning_id = _get_zoning_id(head)
         result.append(md)
     return result

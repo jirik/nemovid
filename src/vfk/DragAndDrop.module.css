@@ -1,7 +1,8 @@
 .dragDrop {
   border: 1px dashed gray;
   margin: auto;
-  padding: 10vh;
+  padding: 32px 64px;
+  background-color: white;
 }
 
 .active {
