@@ -113,7 +113,8 @@ postgres-up:
 	docker compose up -d postgres
 
 server-up:
-	docker compose up -d postgres files ogr2ogr qgis vfk
+	$(MAKE) postgres-ensure-data-dir
+	docker compose up -d postgres files ogr2ogr qgis vfk --force-recreate
 
 migrate:
 	$(MAKE) files-migrate

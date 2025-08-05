@@ -23,8 +23,12 @@ class Settings(BaseSettings):
         (".zip", "application/zip", "vfk", True),
     }
     files_ttl_by_label: dict[str, int] = {
-        "dxf": 7 * 24 * 60 * 60,
+        "dxf": 7 * 24 * 60 * 60,  # 7 days
+        "vfk": 2 * 60 * 60,  # 2 hours
     }
+
+    # vfk
+    internal_ogr2ogr_url: HttpUrl = HttpUrl("http://ogr2ogr:8000")
 
     @field_serializer("database_url")
     def serialize_redacted_url(self, database_url: PostgresDsn):

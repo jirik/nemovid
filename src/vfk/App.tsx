@@ -1,24 +1,49 @@
 import '@mantine/core/styles.css';
 import './../global.css';
 import './App.css';
-import { Container, MantineProvider, Table, createTheme } from '@mantine/core';
+import {
+  Button,
+  Container,
+  Loader,
+  MantineProvider,
+  Progress,
+  Table,
+  createTheme,
+} from '@mantine/core';
 import { useCallback, useEffect } from 'react';
 import { assertIsDefined } from '../assert.ts';
 import { getZoningNames } from '../cuzk.ts';
 import { postFiles } from '../server/files';
 import { createClient as createFilesClient } from '../server/files/client';
-import { getFilesMetadata, listDbImports } from '../server/vfk';
+import {
+  type VfkMetadata,
+  dbImport,
+  getFilesMetadata,
+  listDbImports,
+} from '../server/vfk';
 import settings from '../settings.ts';
 import styles from './App.module.css';
 import DragAndDrop from './DragAndDrop.tsx';
 import {
   dbImportsLoaded,
   filesOpened,
+  vfkFileImportStatusChange,
   vfkFilesExtracted,
   zoningNamesLoaded,
 } from './actions.ts';
 import { extractVfkFiles } from './api.ts';
-import { getAllZoningNames, useAppStore } from './store.ts';
+import {
+  DbImportStatus,
+  type VfkFileImport,
+  getAllZoningNames,
+  getImportProgress,
+  getIsAnySafeVfkFileAvailable,
+  getIsImportIntoDbActive,
+  getNewerVfkFiles,
+  getSafeVfkFiles,
+  getZoningTableRows,
+  useAppStore,
+} from './store.ts';
 
 const theme = createTheme({});
 
@@ -30,11 +55,44 @@ const vfkClient = createFilesClient({
   baseUrl: settings.publicUrl,
 });
 
+const importVfkFiles = async (vfkFiles: VfkMetadata[]) => {
+  for (const vfkFile of vfkFiles || []) {
+    assertIsDefined(vfkFile.zoning_id);
+    const vfkImport: VfkFileImport = {
+      zoning_id: vfkFile.zoning_id,
+      status: DbImportStatus.WAITING,
+    };
+    vfkFileImportStatusChange({ vfkImport });
+  }
+  for (const vfkFile of vfkFiles || []) {
+    assertIsDefined(vfkFile.zoning_id);
+    const vfkImport: VfkFileImport = {
+      zoning_id: vfkFile.zoning_id,
+      status: DbImportStatus.RUNNING,
+    };
+    vfkFileImportStatusChange({ vfkImport });
+    const dbImportResp = await dbImport({
+      body: vfkFile.file,
+      client: vfkClient,
+    });
+    vfkImport.status = dbImportResp.error
+      ? DbImportStatus.FAILURE
+      : DbImportStatus.SUCCESS;
+    vfkFileImportStatusChange({ vfkImport });
+  }
+};
+
 const App = () => {
-  const dbImports = useAppStore((state) => state.dbImports);
   const inputFileNames = useAppStore((state) => state.inputFileNames);
   const vfkFilesMetadata = useAppStore((state) => state.vfkFilesMetadata);
+  const safeVfkFiles = useAppStore(getSafeVfkFiles);
+  const newerVfkFiles = useAppStore(getNewerVfkFiles);
+
   const allZoningNames = useAppStore(getAllZoningNames);
+  const zoningTableRows = useAppStore(getZoningTableRows);
+  const isAnySafeVfkFileAvailable = useAppStore(getIsAnySafeVfkFileAvailable);
+  const isImportIntoDbActive = useAppStore(getIsImportIntoDbActive);
+  const importProgress = useAppStore(getImportProgress);
 
   useEffect(() => {
     (async () => {
@@ -45,25 +103,67 @@ const App = () => {
   }, []);
 
   let dbImportsJsx: React.ReactNode;
-  if (dbImports) {
-    if (dbImports.length > 0) {
+  if (zoningTableRows) {
+    if (zoningTableRows.length > 0) {
       dbImportsJsx = (
-        <Table className={styles.table}>
+        <Table className={styles.table} stickyHeader>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Kód KÚ</Table.Th>
               <Table.Th>Název KÚ</Table.Th>
-              <Table.Th>Datum platnosti</Table.Th>
+              <Table.Th>Aktuální datum platnosti</Table.Th>
+              {isAnySafeVfkFileAvailable ? (
+                <Table.Th>Platnost dat ze souboru</Table.Th>
+              ) : null}
+              {isImportIntoDbActive ? (
+                <Table.Th>Průběh importu</Table.Th>
+              ) : null}
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {dbImports.map((vfkImport) => (
-              <Table.Tr key={vfkImport.zoning_id}>
-                <Table.Td>{vfkImport.zoning_id}</Table.Td>
-                <Table.Td>{vfkImport.zoning_name}</Table.Td>
-                <Table.Td>{vfkImport.valid_date}</Table.Td>
-              </Table.Tr>
-            ))}
+            {zoningTableRows.map((row) => {
+              let newDataCell: React.ReactNode = null;
+              if (isAnySafeVfkFileAvailable) {
+                if (row.new_valid_date != null) {
+                  newDataCell = <Table.Td>{row.new_valid_date}</Table.Td>;
+                } else {
+                  newDataCell = <Table.Td>data nenalezena</Table.Td>;
+                }
+              }
+              let importStatusCell: React.ReactNode = null;
+              if (isImportIntoDbActive) {
+                if (row.vfk_import_status === DbImportStatus.FAILURE) {
+                  importStatusCell = (
+                    <Table.Td className={styles.warn}>Chyba!</Table.Td>
+                  );
+                } else if (row.vfk_import_status === DbImportStatus.WAITING) {
+                  importStatusCell = <Table.Td>čeká ve frotě</Table.Td>;
+                } else if (row.vfk_import_status === DbImportStatus.RUNNING) {
+                  importStatusCell = (
+                    <Table.Td>
+                      <Loader color="blue" size={16} />
+                    </Table.Td>
+                  );
+                } else if (row.vfk_import_status === DbImportStatus.SUCCESS) {
+                  importStatusCell = (
+                    <Table.Td className={styles.success}>
+                      úspěšně dokončeno
+                    </Table.Td>
+                  );
+                } else {
+                  importStatusCell = <Table.Td>není co importovat</Table.Td>;
+                }
+              }
+              return (
+                <Table.Tr key={row.zoning_id}>
+                  <Table.Td>{row.zoning_id}</Table.Td>
+                  <Table.Td>{row.zoning_name || '?'}</Table.Td>
+                  <Table.Td>{row.db_valid_date || 'dosud žádné'}</Table.Td>
+                  {newDataCell}
+                  {importStatusCell}
+                </Table.Tr>
+              );
+            })}
           </Table.Tbody>
         </Table>
       );
@@ -115,13 +215,68 @@ const App = () => {
     [allZoningNames],
   );
 
-  const inputFilesJsx: React.ReactNode =
-    inputFileNames === null ? (
+  const onNewerDbImportClick = useCallback(() => {
+    (async () => {
+      await importVfkFiles(newerVfkFiles);
+    })();
+  }, [newerVfkFiles]);
+
+  const onAllDbImportClick = useCallback(() => {
+    (async () => {
+      await importVfkFiles(safeVfkFiles || []);
+    })();
+  }, [safeVfkFiles]);
+
+  let inputFilesJsx: React.ReactNode = null;
+  if (inputFileNames === null) {
+    inputFilesJsx = (
       <DragAndDrop
         onFilesSelected={onFilesSelected}
         supportedExtensions={['.zip']}
       />
-    ) : (
+    );
+  } else {
+    const vfkFilesJsx: React.ReactNode[] = [];
+    if (vfkFilesMetadata === null) {
+      vfkFilesJsx.push(<p key="savingInputFiles">Ukládám vstupní soubory</p>);
+    } else {
+      assertIsDefined(safeVfkFiles);
+      vfkFilesJsx.push(
+        ...[
+          <div key="zoningCount">
+            Počet katastrálních území: <strong>{safeVfkFiles.length}</strong>
+          </div>,
+          <div key="newerZoningCount">
+            Počet katastrálních území s novějšími daty:{' '}
+            <strong>{newerVfkFiles.length}</strong>
+          </div>,
+        ],
+      );
+      if (safeVfkFiles.length > 0) {
+        if (isImportIntoDbActive) {
+          vfkFilesJsx.push(
+            <div key="importIntoDb">
+              <strong>Průběh importu</strong>
+              <Progress value={importProgress} />
+            </div>,
+          );
+        } else {
+          vfkFilesJsx.push(
+            <div key="importIntoDb">
+              <Button onClick={onAllDbImportClick}>
+                Naimportovat do databáze všechna data
+              </Button>
+              {newerVfkFiles.length > 0 ? (
+                <Button onClick={onNewerDbImportClick}>
+                  Naimportovat do databáze novější data
+                </Button>
+              ) : null}
+            </div>,
+          );
+        }
+      }
+    }
+    inputFilesJsx = (
       <div>
         <strong>Vstupní soubory</strong>
         <ul>
@@ -129,39 +284,10 @@ const App = () => {
             <li key={fn}>{fn}</li>
           ))}
         </ul>
-        {vfkFilesMetadata === null ? <p>Ukládám vstupní soubory</p> : null}
+        {vfkFilesJsx}
       </div>
     );
-
-  const vfkFilesJsx: React.ReactNode =
-    vfkFilesMetadata === null ? null : (
-      <div>
-        <strong>Nalezená data z katastru nemovitostí</strong>
-        <Table className={styles.table}>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Kód KÚ</Table.Th>
-              <Table.Th>Název KÚ</Table.Th>
-              <Table.Th>Datum platnosti</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {vfkFilesMetadata.map((md) => {
-              const key = [md.file.url, md.file.archived_file_path].join('//');
-              return (
-                <Table.Tr key={key}>
-                  <Table.Td>{md.zoning_id}</Table.Td>
-                  <Table.Td>
-                    {allZoningNames[md.zoning_id || ''] || '?'}
-                  </Table.Td>
-                  <Table.Td>{md.valid_date}</Table.Td>
-                </Table.Tr>
-              );
-            })}
-          </Table.Tbody>
-        </Table>
-      </div>
-    );
+  }
 
   return (
     <MantineProvider theme={theme}>
@@ -171,10 +297,9 @@ const App = () => {
           <div className={styles.section}>
             <h2>Import nových dat</h2>
             {inputFilesJsx}
-            {vfkFilesJsx}
           </div>
           <div className={styles.section}>
-            <h2>Existující data</h2>
+            <h2>Přehled dat</h2>
             {dbImportsJsx}
           </div>
         </Container>

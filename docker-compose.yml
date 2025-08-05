@@ -31,6 +31,8 @@ services:
       image: ogr2ogr:latest
       user: ${UID_GID}
       command: bash -c "source .venv/bin/activate && fastapi dev src/main.py --host 0.0.0.0"
+      environment:
+        - DATABASE_URL=${DATABASE_URL}
       env_file:
         - .env
       volumes:

@@ -16,4 +16,18 @@
 
 .table {
   --table-border-color: white;
+  & th {
+    background-color: var(--main-bg-color);
+  }
+  & > thead > tr {
+    border-bottom: 1px solid white;
+  }
+}
+
+.warn {
+  color: red;
+}
+
+.success {
+  color: green;
 }

@@ -1,5 +1,5 @@
 import type { CadastralImport, VfkMetadata } from '../server/vfk';
-import { useAppStore } from './store.ts';
+import { type VfkFileImport, useAppStore } from './store.ts';
 
 const set = useAppStore.getState().set;
 
@@ -28,4 +28,19 @@ export const zoningNamesLoaded = ({
       ...state.zoningNames,
       ...names,
     };
+  });
+
+export const vfkFileImportStatusChange = ({
+  vfkImport,
+}: { vfkImport: VfkFileImport }) =>
+  set((state) => {
+    const oldVfkImport = state.vfkFileImports.find(
+      (vi) => vi.zoning_id === vfkImport.zoning_id,
+    );
+    if (oldVfkImport) {
+      oldVfkImport.status = vfkImport.status;
+    } else {
+      state.vfkFileImports.push(structuredClone(vfkImport));
+    }
+    console.log(vfkImport.zoning_id, vfkImport.status);
   });

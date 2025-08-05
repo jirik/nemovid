@@ -1,5 +1,7 @@
+from typing import Optional
+
 from fastapi import FastAPI
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl
 
 from common.cmd import run_cmd
 from common.files import (
@@ -25,6 +27,11 @@ class DxfToGeojsonResponse(BaseModel):
     file_url: HttpUrl
 
 
+class FileUrl(BaseModel):
+    url: HttpUrl
+    archived_file_path: Optional[str] = None
+
+
 @app.post(
     "/api/ogr2ogr/v1/dxf-to-geojson",
     summary="DXF to GeoJSON",
@@ -43,3 +50,31 @@ async def post_dxf_to_geojson(request: DxfToGeojsonRequest):
 
     result = DxfToGeojsonResponse(file_url=HttpUrl(file_path_to_static_url(out_path)))
     return result
+
+
+def _file_url_to_gdal_path(file_url: FileUrl) -> str:
+    file_path: str = static_url_to_file_path(file_url.url)
+    if file_url.archived_file_path is not None:
+        file_path = f"/vsizip/{file_path}/{file_url.archived_file_path}"
+    return file_path
+
+
+class VfkToPostgisRequest(BaseModel):
+    file_url: FileUrl
+    db_schema: str = Field(pattern=r"^[0-9a-zA-Z_]+$")
+
+
+@app.post(
+    "/api/ogr2ogr/v1/vfk-to-postgis",
+    summary="VFK to PostGIS",
+    operation_id="vfk_to_postgis",
+    responses={
+        200: {},
+    },
+)
+async def post_vfk_to_postgis(request: VfkToPostgisRequest):
+    gdal_file_path: str = _file_url_to_gdal_path(request.file_url)
+
+    run_cmd(
+        f"""ogr2ogr -f PostgreSQL "{settings.database_url}" {gdal_file_path} --config OGR_VFK_DB_NAME {request.db_schema}.db --config OGR_VFK_DB_DELETE YES -lco SCHEMA={request.db_schema}"""
+    )

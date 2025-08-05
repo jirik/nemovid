@@ -4,7 +4,9 @@ import zipfile
 from dataclasses import asdict
 from datetime import date, datetime
 from typing import Optional
+from urllib.parse import urljoin
 
+import requests
 from fastapi import FastAPI
 from pydantic import BaseModel, HttpUrl
 
@@ -123,6 +125,20 @@ class VfkMetadata(BaseModel):
     zoning_id: Optional[str] = None
 
 
+def _get_file_head(file: FileUrl) -> list[str]:
+    lines_to_read = 12
+    file_path = static_url_to_file_path(file.url)
+    if file.archived_file_path is None:
+        with open(file_path, "rb") as input_file:
+            head = [next(input_file) for _ in range(lines_to_read)]
+    else:
+        with zipfile.ZipFile(file_path, "r") as zip_file:
+            with zip_file.open(file.archived_file_path) as vfk_file:
+                head = [next(vfk_file) for _ in range(lines_to_read)]
+    head = [ln.decode("utf-8").strip() for ln in head]
+    return head
+
+
 @app.post(
     "/api/vfk/v1/files/metadata",
     summary="Get metadata of VFK files",
@@ -135,18 +151,9 @@ class VfkMetadata(BaseModel):
     },
 )
 async def get_files_metadata(files: list[FileUrl]):
-    lines_to_read = 12
     result: list[VfkMetadata] = []
     for file in files:
-        file_path = static_url_to_file_path(file.url)
-        if file.archived_file_path is None:
-            with open(file_path, "rb") as input_file:
-                head = [next(input_file) for _ in range(lines_to_read)]
-        else:
-            with zipfile.ZipFile(file_path, "r") as zip_file:
-                with zip_file.open(file.archived_file_path) as vfk_file:
-                    head = [next(vfk_file) for _ in range(lines_to_read)]
-        head = [ln.decode("utf-8").strip() for ln in head]
+        head = _get_file_head(file)
         problems = _check_vfk_file_head(head)
         md = VfkMetadata(file=file, problems=problems)
         if not problems:
@@ -154,3 +161,36 @@ async def get_files_metadata(files: list[FileUrl]):
             md.zoning_id = _get_zoning_id(head)
         result.append(md)
     return result
+
+
+@app.post(
+    "/api/vfk/v1/db/import",
+    summary="Import VFK file into DB",
+    operation_id="db_import",
+    responses={
+        200: {},
+    },
+)
+async def db_import(file: FileUrl):
+    head = _get_file_head(file)
+    problems = _check_vfk_file_head(head)
+    assert not problems
+    valid_date = _get_valid_date(head)
+    zoning_id = _get_zoning_id(head)
+    db_util.ensure_empty_tmp_vfk_schema(zoning_id, valid_date)
+    req_url = urljoin(
+        str(settings.internal_ogr2ogr_url), "/api/ogr2ogr/v1/vfk-to-postgis"
+    )
+    db_schema = db_util.get_schema_name(zoning_id, valid_date, tmp=True)
+    resp = requests.post(
+        req_url,
+        json={
+            "file_url": {
+                "url": str(file.url),
+                "archived_file_path": file.archived_file_path,
+            },
+            "db_schema": db_schema,
+        },
+    )
+    resp.raise_for_status()
+    db_util.set_tmp_vfk_schema_as_main(zoning_id, valid_date)
