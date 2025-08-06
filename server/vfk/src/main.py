@@ -194,3 +194,48 @@ async def db_import(file: FileUrl):
     )
     resp.raise_for_status()
     db_util.set_tmp_vfk_schema_as_main(zoning_id, valid_date)
+
+
+class OwnerType(BaseModel):
+    type_code: int  # charos.kod
+    type_group: str  # charos.opsub_type
+    owner_ico: Optional[int] = None  # opsub.owner_ico
+
+
+class TitleDeedOwnerOverview(BaseModel):
+    title_deed_number: int  # tel.cislo_tel
+    owners_count: int  # number of unique owners (eligible legal persons)
+    owner_types: list[OwnerType]  # distinct owner types
+
+
+@app.post(
+    "/api/vfk/v1/db/zoning/{zoning_code}/title-deeds/ownership",
+    summary="Get overview information about title deed ownership",
+    operation_id="get_zoning_title_deeds_ownership",
+    description="List of overview information about title deed ownership",
+    response_model=list[TitleDeedOwnerOverview],
+    response_model_exclude_none=True,
+)
+async def get_zoning_title_deeds_ownership(
+    zoning_code: int, title_deed_numbers: list[int]
+):
+    db_results = db_util.get_zoning_title_deeds_ownership(
+        zoning_code, title_deed_numbers
+    )
+    result: list[TitleDeedOwnerOverview] = []
+    for db_result in db_results:
+        result.append(
+            TitleDeedOwnerOverview(
+                title_deed_number=db_result.title_deed_number,
+                owners_count=db_result.owners_count,
+                owner_types=[
+                    OwnerType(
+                        type_code=ot.type_code,
+                        type_group=ot.type_group,
+                        owner_ico=ot.owner_ico,
+                    )
+                    for ot in db_result.owner_types
+                ],
+            )
+        )
+    return result
