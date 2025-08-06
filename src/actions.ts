@@ -7,6 +7,7 @@ import { getFilter } from './codeList.ts';
 import { getParcelLabel, getParcelZoning } from './cuzk.ts';
 
 import { type ParcelCover, ParcelHasBuildingPropName } from './olutil.ts';
+import type { TitleDeedOwnerOverview } from './server/vfk';
 import settings from './settings.ts';
 import {
   type MapLayer,
@@ -159,11 +160,33 @@ export const titleDeedsLoaded = ({
     state.titleDeeds = titleDeeds;
     state.owners = owners;
     state.parcelInfosTimestamp = Date.now();
+  });
+
+export const titleDeedsOwnerTypesLoaded = ({
+  ownerships,
+}: {
+  ownerships: TitleDeedOwnerOverview[];
+}) =>
+  set((state) => {
+    assertIsDefined(state.titleDeeds);
+    for (const ownership of ownerships) {
+      const titleDeed: SimpleTitleDeed | undefined =
+        state.titleDeeds[ownership.title_deed_id];
+      console.assert(
+        !!titleDeed,
+        `Title deed ${ownership.title_deed_id} not found: `,
+        ownership,
+      );
+      titleDeed.ownersCount = ownership.owners_count;
+      titleDeed.ownerTypes = ownership.owner_types;
+    }
+
     assertIsDefined(state.parcelFeatures);
     for (const titleDeed of Object.values(state.titleDeeds)) {
       const group = Object.values(settings.ownerGroups).find(
         (group) =>
-          'ownerId' in group && titleDeed.owners.includes(group.ownerId),
+          'ownerIco' in group &&
+          titleDeed.ownerTypes.some((ot) => ot.owner_ico === group.ownerIco),
       );
       if (group) {
         for (const parcelId of titleDeed.parcels) {
@@ -172,6 +195,7 @@ export const titleDeedsLoaded = ({
         }
       }
     }
+    console.log('done');
   });
 
 export const codeListsLoaded = (codeLists: Partial<State['codeLists']>) =>

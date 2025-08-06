@@ -13,9 +13,9 @@ const settings: Settings = {
 
 export default settings;
 
-type OwnerGroupById = {
+type OwnerGroupByIco = {
   groupId: string;
-  ownerId: number;
+  ownerIco: number;
   label: string;
   color: [number, number, number];
 };
@@ -26,11 +26,11 @@ type DefaultOwnerGroup = {
   color: [number, number, number];
 };
 
-export type OwnerGroup = OwnerGroupById | DefaultOwnerGroup;
+export type OwnerGroup = OwnerGroupByIco | DefaultOwnerGroup;
 
 type OwnerGroups = {
   [groupId: string]:
-    | Omit<OwnerGroupById, 'groupId'>
+    | Omit<OwnerGroupByIco, 'groupId'>
     | Omit<DefaultOwnerGroup, 'groupId'>;
 } & {
   default: Omit<DefaultOwnerGroup, 'groupId'>;
@@ -38,6 +38,7 @@ type OwnerGroups = {
 
 export type InputSettings = {
   parcelRestUrlTemplate: string | null;
+  ownerTypeRestUrlTemplate: string | null;
   parcelInfoUrlTemplate: string | null;
   titleDeedInfoUrlTemplate: string | null;
   ownerInfoUrlTemplate: string | null;

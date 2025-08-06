@@ -3,11 +3,11 @@ import re
 import zipfile
 from dataclasses import asdict
 from datetime import date, datetime
-from typing import Optional
+from typing import Annotated, Optional
 from urllib.parse import urljoin
 
 import requests
-from fastapi import FastAPI
+from fastapi import Body, FastAPI
 from pydantic import BaseModel, HttpUrl
 
 from common.files import static_url_to_file_path
@@ -203,13 +203,15 @@ class OwnerType(BaseModel):
 
 
 class TitleDeedOwnerOverview(BaseModel):
+    zoning_code: int  # katuze.kod
+    title_deed_id: int  # tel.id
     title_deed_number: int  # tel.cislo_tel
     owners_count: int  # number of unique owners (eligible legal persons)
     owner_types: list[OwnerType]  # distinct owner types
 
 
 @app.post(
-    "/api/vfk/v1/db/zoning/{zoning_code}/title-deeds/ownership",
+    "/api/vfk/v1/db/title-deeds/ownership",
     summary="Get overview information about title deed ownership",
     operation_id="get_zoning_title_deeds_ownership",
     description="List of overview information about title deed ownership",
@@ -217,15 +219,27 @@ class TitleDeedOwnerOverview(BaseModel):
     response_model_exclude_none=True,
 )
 async def get_zoning_title_deeds_ownership(
-    zoning_code: int, title_deed_numbers: list[int]
+    title_deeds: Annotated[
+        dict[int, list[int]],
+        Body(
+            examples=[{"612065": [417, 1299]}],
+        ),
+    ],
 ):
-    db_results = db_util.get_zoning_title_deeds_ownership(
-        zoning_code, title_deed_numbers
-    )
+    db_results = [
+        ownership
+        for zoning_code, title_deed_numbers in title_deeds.items()
+        for ownership in db_util.get_zoning_title_deeds_ownership(
+            zoning_code, title_deed_numbers
+        )
+    ]
+
     result: list[TitleDeedOwnerOverview] = []
     for db_result in db_results:
         result.append(
             TitleDeedOwnerOverview(
+                zoning_code=db_result.zoning_code,
+                title_deed_id=db_result.title_deed_id,
                 title_deed_number=db_result.title_deed_number,
                 owners_count=db_result.owners_count,
                 owner_types=[

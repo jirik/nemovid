@@ -14,6 +14,7 @@ import {
   extentsToFeatures,
   filterParcels,
 } from './olutil.ts';
+import type { OwnerType } from './server/vfk';
 import * as ts from './typescriptUtil.ts';
 
 export type ParcelFilters = {
@@ -137,6 +138,8 @@ export type TitleDeed = {
   owners: Owner[];
   parcels: Parcel[];
   zoning: Zoning;
+  ownersCount: number;
+  ownerTypes: OwnerType[];
 };
 
 export type Zoning = {
@@ -171,7 +174,7 @@ export type SimpleTitleDeed = Omit<
 
 export const UnknownSimpleTitleDeed: Omit<
   SimpleTitleDeed,
-  'zoning' | 'parcels' | 'owners' | 'id'
+  'zoning' | 'parcels' | 'owners' | 'id' | 'ownersCount' | 'ownerTypes'
 > = {
   number: -1,
 };
@@ -535,5 +538,21 @@ export const getMapLayers = memoize(
   },
   {
     size: Object.values(initialState.mapLayers).length,
+  },
+);
+
+export const getTitleDeedNumbersByZoning = memoize(
+  (state: State): { [zoningCode: string]: number[] } => {
+    return Object.values(state.titleDeeds || {}).reduce(
+      (prev: { [zoningId: string]: number[] }, titleDeed) => {
+        const zoningCode = Number.parseInt(titleDeed.zoning.split('.')[1]);
+        if (!(zoningCode in prev)) {
+          prev[zoningCode] = [];
+        }
+        prev[zoningCode].push(titleDeed.number);
+        return prev;
+      },
+      {},
+    );
   },
 );

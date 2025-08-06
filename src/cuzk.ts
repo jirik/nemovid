@@ -86,6 +86,8 @@ export const getTitleDeeds = async ({
           owners: owners.map((o) => o.id),
           zoning: zoningId,
           parcels: [],
+          ownerTypes: [],
+          ownersCount: 0,
         };
       }
     } else {
@@ -111,6 +113,8 @@ export const getTitleDeeds = async ({
           owners: owners.map((o) => o.id),
           zoning: zoningId,
           parcels: [],
+          ownerTypes: [],
+          ownersCount: 0,
         };
         allTitleDeeds[titleDeedId] = titleDeed;
       } else {

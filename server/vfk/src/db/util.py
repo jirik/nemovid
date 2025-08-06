@@ -166,6 +166,8 @@ class OwnerType:
 
 @dataclass(kw_only=True)
 class TitleDeedOwnerOverview:
+    zoning_code: int  # katuze.kod
+    title_deed_id: int  # tel.id
     title_deed_number: int  # tel.cislo_tel
     owners_count: int  # number of unique owners (eligible legal persons)
     owner_types: list[OwnerType]  # distinct owner types
@@ -197,21 +199,24 @@ select tel.id tel_id,
           where (vla2.tel_id = tel.id and vla2.opsub_id = opsub1.id)
        ) as vlastnici
 from {tel_table} tel
-where tel.cislo_tel = ANY({title_deed_numbers})
+where tel.cislo_tel = ANY({title_deed_numbers}) and tel.katuze_kod = {zoning_code}
 order by tel.id
     """).format(
             tel_table=sql.Identifier(schema_name, "tel"),
             vla_table=sql.Identifier(schema_name, "vla"),
             opsub_table=sql.Identifier(schema_name, "opsub"),
             title_deed_numbers=sql.Literal(title_deed_numbers),
+            zoning_code=sql.Literal(zoning_code),
         )
     )
     result: list[TitleDeedOwnerOverview] = []
     for row in rows:
-        _, _, cislo_tel, pocet_vlastniku, vlastnici = row
+        tel_id, katuze_kod, cislo_tel, pocet_vlastniku, vlastnici = row
         vlastnici = vlastnici or []
         result.append(
             TitleDeedOwnerOverview(
+                zoning_code=katuze_kod,
+                title_deed_id=tel_id,
                 title_deed_number=cislo_tel,
                 owners_count=pocet_vlastniku,
                 owner_types=[

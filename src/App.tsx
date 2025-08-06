@@ -29,6 +29,7 @@ import {
   parcelCoverProgress,
   parcelsLoaded,
   titleDeedsLoaded,
+  titleDeedsOwnerTypesLoaded,
 } from './actions.ts';
 import { assertFeature, assertIsDefined } from './assert.ts';
 import { MIN_MAIN_EXTENT_RADIUS_PX } from './constants.ts';
@@ -51,6 +52,7 @@ import { dxfToGeojson } from './server/ogr2ogr';
 import { createClient as createOgr2ogrClient } from './server/ogr2ogr/client';
 import { fixGeometries } from './server/qgis';
 import { createClient as createQgisClient } from './server/qgis/client';
+import { getZoningTitleDeedsOwnership } from './server/vfk';
 import settings from './settings.ts';
 import {
   type State,
@@ -59,6 +61,7 @@ import {
   getFilteredParcels,
   getMainExtentFeatures,
   getMainExtents,
+  getTitleDeedNumbersByZoning,
   useAppStore,
 } from './store.ts';
 import { getParcelStyle } from './style.ts';
@@ -86,6 +89,7 @@ const App = () => {
   const constrnFeatures = useAppStore((state) => state.constrnFeatures);
   const highlightedParcelId = useAppStore((state) => state.highlightedParcel);
   const parcels = useAppStore(getFilteredParcels).features;
+  const titleDeedNumbersByZoning = useAppStore(getTitleDeedNumbersByZoning);
   const covers = useAppStore(getCovers);
   const mapRef = useRef<OlMap | null>(null);
   const constrnLayersRef = useRef<ContrnLayers | null>(null);
@@ -482,6 +486,26 @@ const App = () => {
       }
     })();
   }, [areConstrnFeaturesLoaded, mainExtents]);
+
+  useEffect(() => {
+    (async () => {
+      if (
+        settings.ownerTypeRestUrlTemplate == null ||
+        Object.values(titleDeedNumbersByZoning).length === 0
+      ) {
+        return;
+      }
+      const vfkClient = createFilesClient({
+        baseUrl: settings.publicUrl,
+      });
+      const response = await getZoningTitleDeedsOwnership({
+        client: vfkClient,
+        body: titleDeedNumbersByZoning,
+      });
+      assertIsDefined(response.data);
+      titleDeedsOwnerTypesLoaded({ ownerships: response.data });
+    })();
+  }, [titleDeedNumbersByZoning]);
 
   useEffect(() => {
     assertIsDefined(parcelLayerRef.current);

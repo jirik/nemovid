@@ -2,6 +2,7 @@ import type { InputSettings } from './../settings.ts';
 
 export default {
   parcelRestUrlTemplate: null,
+  ownerTypeRestUrlTemplate: null,
   parcelInfoUrlTemplate: null,
   titleDeedInfoUrlTemplate: null,
   ownerInfoUrlTemplate: null,
