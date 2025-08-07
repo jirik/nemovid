@@ -9,7 +9,7 @@
     "dev": "vite --open",
     "dev-headless": "vite",
     "format": "biome format --write",
-    "preview": "vite preview"
+    "preview": "vite preview --host"
   },
   "dependencies": {
     "@mantine/core": "^8.2.1",
