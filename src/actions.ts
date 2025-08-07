@@ -7,7 +7,7 @@ import { getFilter } from './codeList.ts';
 import { getParcelLabel, getParcelZoning } from './cuzk.ts';
 
 import { type ParcelCover, ParcelHasBuildingPropName } from './olutil.ts';
-import type { TitleDeedOwnerOverview } from './server/vfk';
+import type { OwnerType, TitleDeedOwnerOverview } from './server/vfk';
 import settings from './settings.ts';
 import {
   type MapLayer,
@@ -24,6 +24,17 @@ import {
 import type { State } from './store.ts';
 
 const set = useAppStore.getState().set;
+
+const ownerTypeMatches = (
+  ownerType: OwnerType,
+  pattern: Partial<OwnerType>,
+): boolean => {
+  return (
+    (!('owner_ico' in pattern) || pattern.owner_ico === ownerType.owner_ico) &&
+    (!('type_code' in pattern) || pattern.type_code === ownerType.type_code) &&
+    (!('type_group' in pattern) || pattern.type_group === ownerType.type_group)
+  );
+};
 
 export const fileOpened = ({
   name,
@@ -183,10 +194,31 @@ export const titleDeedsOwnerTypesLoaded = ({
 
     assertIsDefined(state.parcelFeatures);
     for (const titleDeed of Object.values(state.titleDeeds)) {
+      const ownerTypes = titleDeed.ownerTypes;
       const group = Object.values(settings.ownerGroups).find(
         (group) =>
-          'ownerIco' in group &&
-          titleDeed.ownerTypes.some((ot) => ot.owner_ico === group.ownerIco),
+          (group.groupType === 'AllMatches' &&
+            ownerTypes.every((ot) => {
+              return !!group.ownerTypesAnyOf.find((pot) =>
+                ownerTypeMatches(ot, pot),
+              );
+            })) ||
+          (group.groupType === 'AllWithinIcos' &&
+            ownerTypes.every(
+              (ot) =>
+                ot.owner_ico != null &&
+                (group.ownerIcosAnyOf.includes(ot.owner_ico) ||
+                  group.ownerIcosAllowed.includes(ot.owner_ico)),
+            ) &&
+            group.ownerIcosAnyOf.every((ico) =>
+              ownerTypes.find((ot) => ot.owner_ico === ico),
+            )) ||
+          (group.groupType === 'AnyWithinIcos' &&
+            ownerTypes.some(
+              (ot) =>
+                ot.owner_ico != null &&
+                group.ownerIcosAnyOf.includes(ot.owner_ico),
+            )),
       );
       if (group) {
         for (const parcelId of titleDeed.parcels) {

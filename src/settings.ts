@@ -1,3 +1,4 @@
+import type { OwnerType } from './server/vfk';
 import inputSettings from './settings/settings.ts';
 
 const settings: Settings = {
@@ -13,25 +14,50 @@ const settings: Settings = {
 
 export default settings;
 
-type OwnerGroupByIco = {
+type OwnerGroupAllMatches = {
   groupId: string;
-  ownerIco: number;
+  groupType: 'AllMatches';
+  ownerTypesAnyOf: Partial<OwnerType>[];
+  label: string;
+  color: [number, number, number];
+};
+
+type OwnerGroupAllWithinIcos = {
+  groupId: string;
+  groupType: 'AllWithinIcos';
+  ownerIcosAnyOf: [number, ...number[]]; // at least one ico must be provided
+  ownerIcosAllowed: number[];
+  label: string;
+  color: [number, number, number];
+};
+
+type OwnerGroupAnyWithinIcos = {
+  groupId: string;
+  groupType: 'AnyWithinIcos';
+  ownerIcosAnyOf: [number, ...number[]]; // at least one ico must be provided
   label: string;
   color: [number, number, number];
 };
 
 type DefaultOwnerGroup = {
+  groupType: 'Default';
   groupId: string;
   label: string;
   color: [number, number, number];
 };
 
-export type OwnerGroup = OwnerGroupByIco | DefaultOwnerGroup;
+export type OwnerGroup =
+  | OwnerGroupAllMatches
+  | OwnerGroupAllWithinIcos
+  | OwnerGroupAnyWithinIcos
+  | DefaultOwnerGroup;
 
 type OwnerGroups = {
   [groupId: string]:
-    | Omit<OwnerGroupByIco, 'groupId'>
-    | Omit<DefaultOwnerGroup, 'groupId'>;
+    | Omit<DefaultOwnerGroup, 'groupId'>
+    | Omit<OwnerGroupAllMatches, 'groupId'>
+    | Omit<OwnerGroupAllWithinIcos, 'groupId'>
+    | Omit<OwnerGroupAnyWithinIcos, 'groupId'>;
 } & {
   default: Omit<DefaultOwnerGroup, 'groupId'>;
 };

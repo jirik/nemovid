@@ -9,6 +9,7 @@ export default {
   publicUrl: import.meta.env.PUBLIC_PUBLIC_URL,
   ownerGroups: {
     default: {
+      groupType: 'Default',
       label: 'ostatní',
       color: [255, 255, 0],
     },
