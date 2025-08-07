@@ -23,6 +23,7 @@ cp .env.default .env
 cp src/settings/settings.default.ts src/settings/settings.ts 
 
 # build backend docker images
+make postgres-build
 make files-build
 make ogr2ogr-build
 make qgis-build
