@@ -502,8 +502,9 @@ const App = () => {
         client: vfkClient,
         body: titleDeedNumbersByZoning,
       });
-      assertIsDefined(response.data);
-      titleDeedsOwnerTypesLoaded({ ownerships: response.data });
+      if(response.data) {
+        titleDeedsOwnerTypesLoaded({ownerships: response.data});
+      }
     })();
   }, [titleDeedNumbersByZoning]);
 
