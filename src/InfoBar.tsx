@@ -16,6 +16,7 @@ import {
   getAreaFiltersState,
   getCodeLists,
   getMapLayers,
+  getMapLegendOwnerGroups,
   getOwners,
   getParcelStats,
   getParcels,
@@ -297,6 +298,7 @@ const MapLayerVisibilitySwitch = ({
 };
 
 const MapLegend = React.memo(() => {
+  const mapLegendOwnerGroups = useAppStore(getMapLegendOwnerGroups);
   const [opened, { toggle }] = useDisclosure(true);
   const content = (
     <>
@@ -335,7 +337,7 @@ const MapLegend = React.memo(() => {
         <h4>Parcely dle vlastníků</h4>
         <MapLayerVisibilitySwitch mapLayerIds={['parcels']} />
         <div className={styles.mapLegendItems}>
-          {Object.values(settings.ownerGroups).map((ownerGroup) => {
+          {Object.values(mapLegendOwnerGroups).map((ownerGroup) => {
             return (
               <React.Fragment key={ownerGroup.groupId}>
                 <div

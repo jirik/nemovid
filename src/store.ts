@@ -15,6 +15,7 @@ import {
   filterParcels,
 } from './olutil.ts';
 import type { OwnerType } from './server/vfk';
+import settings, { type OwnerGroup } from './settings.ts';
 import * as ts from './typescriptUtil.ts';
 
 export type ParcelFilters = {
@@ -43,6 +44,7 @@ export interface State {
   highlightedParcel: string | null;
   parcelCoversTimestamp: number | null;
   parcelInfosTimestamp: number | null;
+  ownerTypesTimestamp: number | null;
   processedParcels: number | null;
   parcelFilters: ParcelFilters;
   codeLists: {
@@ -74,6 +76,7 @@ const initialState: State = {
   highlightedParcel: null,
   parcelCoversTimestamp: null,
   parcelInfosTimestamp: null,
+  ownerTypesTimestamp: null,
   parcelFilters: structuredClone(defaultFilters),
   codeLists: {
     landUse: null,
@@ -553,6 +556,26 @@ export const getTitleDeedNumbersByZoning = memoize(
         return prev;
       },
       {},
+    );
+  },
+);
+
+export const getMapLegendOwnerGroups = createAppSelector(
+  [(state) => state.parcelFeatures, (state) => state.ownerTypesTimestamp],
+  (parcelFeatures, _ownerTypesTimestamp): { [groupId: string]: OwnerGroup } => {
+    const usedGroupIds = new Set<string>([]);
+    for (const parcel of Object.values(parcelFeatures || {})) {
+      const ownerGroupId = parcel.get('ownerGroup') as string | undefined;
+      if (ownerGroupId != null) {
+        usedGroupIds.add(ownerGroupId);
+      } else {
+        usedGroupIds.add('default');
+      }
+    }
+    return Object.fromEntries(
+      Object.entries(settings.ownerGroups).filter(([groupId, _]) =>
+        usedGroupIds.has(groupId),
+      ),
     );
   },
 );

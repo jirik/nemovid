@@ -52,6 +52,7 @@ export const fileOpened = ({
     state.parcelFilters = { ...defaultFilters };
     state.parcelCoversTimestamp = null;
     state.parcelInfosTimestamp = null;
+    state.ownerTypesTimestamp = null;
     state.processedParcels = null;
   });
 
@@ -227,7 +228,7 @@ export const titleDeedsOwnerTypesLoaded = ({
         }
       }
     }
-    console.log('done');
+    state.ownerTypesTimestamp = Date.now();
   });
 
 export const codeListsLoaded = (codeLists: Partial<State['codeLists']>) =>
