@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import react from '@vitejs/plugin-react-swc';
 import { defineConfig } from 'vite';
 
@@ -16,6 +17,14 @@ export default defineConfig({
   },
   preview: {
     port: 3000,
+  },
+  build: {
+    rollupOptions: {
+      input: {
+        index: resolve(__dirname, 'index.html'),
+        vfk: resolve(__dirname, 'vfk.html'),
+      },
+    },
   },
   envPrefix: 'PUBLIC_',
 });
