@@ -21,6 +21,7 @@ class Settings(BaseSettings):
         (".dxf", "application/octet-stream", "dxf", False),
         (".dxf", "image/vnd.dxf", "dxf", False),
         (".zip", "application/zip", "vfk", True),
+        (".zip", "application/x-zip-compressed", "vfk", True),
     }
     files_ttl_by_label: dict[str, int] = {
         "dxf": 7 * 24 * 60 * 60,  # 7 days
