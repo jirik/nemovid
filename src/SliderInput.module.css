@@ -1,8 +1,18 @@
 .wrapper {
   position: relative;
+  margin-bottom: 8px;
 }
 
-.input {
+.inputs {
+  display: flex;
+  flex-direction: row;
+}
+
+.inputRoot {
+  flex-grow: 1;
+}
+
+.inputInput {
   height: auto;
   padding-top: 22px;
   padding-bottom: 3px;
@@ -14,8 +24,17 @@
   position: absolute;
   pointer-events: none;
   padding-left: var(--mantine-spacing-sm);
+  padding-right: var(--mantine-spacing-sm);
   padding-top: calc(var(--mantine-spacing-sm) / 2);
   z-index: 1;
+}
+
+.maxInput .inputInput {
+  text-align: right;
+}
+
+.maxInput .label {
+  right: 0;
 }
 
 .slider {

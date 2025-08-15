@@ -382,7 +382,9 @@ export const filterParcels = ({
   }
   const useAreaFilters =
     (filters.maxCoveredAreaM2 !== defaultFilters.maxCoveredAreaM2 ||
-      filters.maxCoveredAreaPerc !== defaultFilters.maxCoveredAreaPerc) &&
+      filters.maxCoveredAreaPerc !== defaultFilters.maxCoveredAreaPerc ||
+      filters.minCoveredAreaM2 !== defaultFilters.minCoveredAreaM2 ||
+      filters.minCoveredAreaPerc !== defaultFilters.minCoveredAreaPerc) &&
     coveredAreas;
   const useLandUseFilter =
     filters.landUse != null &&
@@ -402,7 +404,9 @@ export const filterParcels = ({
     return (
       (!coveredAreas || coveredAreas[parcelId].coveredAreaM2 > 0) &&
       (!useAreaFilters ||
-        (areaM2 <= filters.maxCoveredAreaM2 &&
+        (filters.minCoveredAreaM2 <= areaM2 &&
+          areaM2 <= filters.maxCoveredAreaM2 &&
+          filters.minCoveredAreaPerc <= areaPerc &&
           areaPerc <= filters.maxCoveredAreaPerc)) &&
       (filters.hasBuilding === null || hasBuilding === filters.hasBuilding) &&
       (!useLandUseFilter || filters.landUse?.[landUseCode]) &&

@@ -6,7 +6,7 @@ import React from 'react';
 import { BooleanFilter } from './BooleanFilter.tsx';
 import { CodeListFilter } from './CodeListFilter.tsx';
 import styles from './InfoBar.module.css';
-import { SliderInput } from './SliderInput.tsx';
+import { RangeSliderInput } from './RangeSliderInput.tsx';
 import { mapLayersChange, parcelFiltersChanged } from './actions.ts';
 import { assertIsDefined } from './assert.ts';
 import settings from './settings.ts';
@@ -174,16 +174,16 @@ const FilterSection = () => {
   const codeLists = useAppStore(getCodeLists);
   const [opened, { toggle }] = useDisclosure(true);
 
-  const maxCoveredAreaM2Cb = useCallback((value: number | string) => {
+  const coveredAreaM2Cb = useCallback((values: [number, number]) => {
     parcelFiltersChanged({
-      maxCoveredAreaM2:
-        typeof value === 'string' ? Number.parseInt(value) : value,
+      minCoveredAreaM2: values[0],
+      maxCoveredAreaM2: values[1],
     });
   }, []);
-  const maxCoveredAreaPercCb = useCallback((value: number | string) => {
+  const coveredAreaPercCb = useCallback((values: [number, number]) => {
     parcelFiltersChanged({
-      maxCoveredAreaPerc:
-        typeof value === 'string' ? Number.parseInt(value) : value,
+      minCoveredAreaPerc: values[0],
+      maxCoveredAreaPerc: values[1],
     });
   }, []);
   const hasBuildingCb = useCallback((value: boolean | null) => {
@@ -216,18 +216,29 @@ const FilterSection = () => {
     assertIsDefined(parcelStats.maxCoveredAreaM2);
     areaContent = (
       <div key="area">
-        <h4>Míra překryvu</h4>
-        <SliderInput
-          value={parcelFilters.maxCoveredAreaM2}
+        <h4>Míra překryvu parcely v m2</h4>
+        <RangeSliderInput
+          values={[
+            parcelFilters.minCoveredAreaM2,
+            parcelFilters.maxCoveredAreaM2,
+          ]}
+          minValue={0}
           maxValue={parcelStats.maxCoveredAreaM2}
-          label="Maximální překrytí parcely v m2"
-          onChange={maxCoveredAreaM2Cb}
+          minLabel="Minimální překryv"
+          maxLabel="Maximální překryv"
+          onChange={coveredAreaM2Cb}
         />
-        <SliderInput
-          value={parcelFilters.maxCoveredAreaPerc}
+        <h4>Míra překryvu parcely v % rozlohy parcely</h4>
+        <RangeSliderInput
+          values={[
+            parcelFilters.minCoveredAreaPerc,
+            parcelFilters.maxCoveredAreaPerc,
+          ]}
+          minValue={0}
           maxValue={100}
-          label="Maximální překrytí parcely v % rozlohy parcely"
-          onChange={maxCoveredAreaPercCb}
+          minLabel="Minimální překryv"
+          maxLabel="Maximální překryv"
+          onChange={coveredAreaPercCb}
         />
       </div>
     );

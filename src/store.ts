@@ -19,6 +19,8 @@ import settings, { type OwnerGroup } from './settings.ts';
 import * as ts from './typescriptUtil.ts';
 
 export type ParcelFilters = {
+  minCoveredAreaM2: number;
+  minCoveredAreaPerc: number;
   maxCoveredAreaM2: number;
   maxCoveredAreaPerc: number;
   hasBuilding: boolean | null;
@@ -55,6 +57,8 @@ export interface State {
 }
 
 export const defaultFilters: ParcelFilters = {
+  minCoveredAreaM2: 0,
+  minCoveredAreaPerc: 0,
   maxCoveredAreaM2: 1_000_000_000,
   maxCoveredAreaPerc: 100,
   hasBuilding: null,
