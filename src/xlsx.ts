@@ -1,13 +1,18 @@
 import { ValueType, Workbook, type Worksheet } from 'exceljs';
 import { sortParcelByLabel } from './cuzk.ts';
-import type { Owner, Parcel, TitleDeed, Zoning } from './store.ts';
+import type { Owner, Parcel, ParcelAreas, TitleDeed, Zoning } from './store.ts';
 
 export const getWorkbook = ({
   zonings,
   owners,
-}: { zonings: Zoning[]; owners: Owner[] }): Workbook => {
+  parcelAreas,
+}: {
+  zonings: Zoning[];
+  owners: Owner[];
+  parcelAreas: { [parcelId: string]: ParcelAreas };
+}): Workbook => {
   const workbook = new Workbook();
-  addParcelSheet(zonings, { workbook });
+  addParcelSheet(zonings, parcelAreas, { workbook });
   addTitleDeedSheet(zonings, { workbook });
   addOwnerSheet(owners, { workbook });
   addZoningSheet(zonings, { workbook });
@@ -43,6 +48,7 @@ const addZoningSheet = (
 
 const addParcelSheet = (
   zonings: Zoning[],
+  parcelAreas: { [parcelId: string]: ParcelAreas },
   { workbook }: { workbook: Workbook },
 ) => {
   const sheet = workbook.addWorksheet('Parcely', {
@@ -52,16 +58,23 @@ const addParcelSheet = (
     { header: 'Název KÚ', key: 'zoningTitle' },
     { header: 'ID parcely', key: 'id' },
     { header: 'Číslo parcely', key: 'label' },
+    { header: 'Rozloha parcely [m²]', key: 'officialAreaM2' },
+    { header: 'Překryv parcely [m²]', key: 'coveredAreaM2' },
+    { header: 'Míra překryvu [%]', key: 'coveredAreaPerc' },
     { header: 'LV', key: 'titleDeed' },
     { header: 'Vlastníci', key: 'owners' },
   ];
   const rows: Record<string, string | number | undefined>[] = zonings.reduce(
     (prev: Record<string, string | number | undefined>[], zoning) => {
       for (const parcel of zoning.parcels) {
+        const areas = parcelAreas[parcel.id];
         prev.push({
           zoningTitle: zoning.title,
           id: parcel.id.toString(),
           label: parcel.label,
+          officialAreaM2: areas.officialAreaM2,
+          coveredAreaM2: areas.coveredAreaM2,
+          coveredAreaPerc: areas.coveredAreaPerc,
           titleDeed: parcel.titleDeed?.number?.toString(),
           owners: (
             parcel.titleDeed?.owners?.map((owner) => owner.label) || []

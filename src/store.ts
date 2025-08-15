@@ -209,6 +209,7 @@ export const getAreParcelCoversLoaded = createAppSelector(
 export type ParcelAreas = {
   coveredAreaM2: number;
   coveredAreaPerc: number;
+  officialAreaM2: number;
 };
 
 export const getImportantCovers = createAppSelector(
@@ -295,11 +296,12 @@ export const getParcelCoveredAreas = createAppSelector(
     assertIsDefined(parcelFeatures);
     assertIsDefined(coverFeatures);
     const result: { [id: string]: ParcelAreas } = Object.fromEntries(
-      Object.keys(parcelFeatures).map((parcelId) => [
+      Object.entries(parcelFeatures).map(([parcelId, parcel]) => [
         parcelId,
         {
           coveredAreaM2: 0,
           coveredAreaPerc: 0,
+          officialAreaM2: parcel.get(ParcelOfficialAreaM2PropName) as number,
         },
       ]),
     );
@@ -310,9 +312,8 @@ export const getParcelCoveredAreas = createAppSelector(
       result[parcelId].coveredAreaM2 += coverArea;
     }
 
-    for (const [parcelId, parcelAreas] of Object.entries(result)) {
-      const parcel = parcelFeatures[parcelId];
-      const officialArea = parcel.get(ParcelOfficialAreaM2PropName) as number;
+    for (const parcelAreas of Object.values(result)) {
+      const officialArea = parcelAreas.officialAreaM2;
       const coveredArea = Math.ceil(
         Math.min(parcelAreas.coveredAreaM2, officialArea),
       );

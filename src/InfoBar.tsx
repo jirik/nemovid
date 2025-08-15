@@ -18,6 +18,7 @@ import {
   getMapLayers,
   getMapLegendOwnerGroups,
   getOwners,
+  getParcelCoveredAreas,
   getParcelStats,
   getParcels,
   getZonings,
@@ -115,6 +116,7 @@ const ParcelsSection = () => {
   const parcels = useAppStore(getParcels);
   const zonings = useAppStore(getZonings);
   const owners = useAppStore(getOwners);
+  const parcelAreas = useAppStore(getParcelCoveredAreas);
 
   let content: ReactNode = null;
   if (parcels == null) {
@@ -128,8 +130,10 @@ const ParcelsSection = () => {
           onClick={async () => {
             assertIsDefined(zonings);
             assertIsDefined(owners);
+            assertIsDefined(parcelAreas);
             const workbook = getWorkbook({
               zonings: Object.values(zonings),
+              parcelAreas,
               owners,
             });
             const buffer = await workbook.xlsx.writeBuffer();
