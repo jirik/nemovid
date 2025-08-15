@@ -79,7 +79,9 @@ const addOwnerGroupSheet = (
     { header: 'Typ vlastníka', key: 'ownerGroupTitle' },
     { header: 'Počet LV', key: 'numTitleDeeds' },
     { header: 'Počet parcel', key: 'numParcels' },
-    { header: 'Překrytí parcel [m²]', key: 'coveredAreaM2' },
+    { header: 'Rozloha parcel [m²]', key: 'officialAreaM2' },
+    { header: 'Překryv parcel [m²]', key: 'coveredAreaM2' },
+    { header: 'Míra překryvu [%]', key: 'coveredAreaPerc' },
     { header: 'LV', key: 'titleDeeds' },
     { header: 'Parcely', key: 'parcels' },
   ];
@@ -106,14 +108,21 @@ const addOwnerGroupSheet = (
         return prev;
       }, []);
       const titleDeedsAndParcels = getTitleDeedsAndParcelsByZoning(titleDeeds);
+      const officialArea = parcels.reduce(
+        (prev, parcel) => prev + parcelAreas[parcel.id].officialAreaM2,
+        0,
+      );
+      const coveredArea = parcels.reduce(
+        (prev, parcel) => prev + parcelAreas[parcel.id].coveredAreaM2,
+        0,
+      );
       return {
         ownerGroupTitle: ownerGroup.label,
         numTitleDeeds: titleDeeds.length,
         numParcels: parcels.length,
-        coveredAreaM2: parcels.reduce(
-          (prev, parcel) => prev + parcelAreas[parcel.id].coveredAreaM2,
-          0,
-        ),
+        officialAreaM2: officialArea,
+        coveredAreaM2: coveredArea,
+        coveredAreaPerc: Math.ceil((coveredArea / officialArea) * 100),
         titleDeeds: titleDeedsAndParcels.titleDeeds,
         parcels: titleDeedsAndParcels.parcels,
       };
@@ -210,7 +219,9 @@ const addTitleDeedSheet = (
     { header: 'ID LV', key: 'id' },
     { header: 'Číslo LV', key: 'number' },
     { header: 'Parcely', key: 'parcels' },
+    { header: 'Rozloha parcel [m²]', key: 'officialAreaM2' },
     { header: 'Překryv parcel [m²]', key: 'coveredAreaM2' },
+    { header: 'Míra překryvu [%]', key: 'coveredAreaPerc' },
     { header: 'Vlastníci', key: 'owners' },
   ];
   const rows: Record<string, string | number | undefined>[] = zonings.reduce(
@@ -218,14 +229,20 @@ const addTitleDeedSheet = (
       for (const titleDeed of Object.values(zoning.titleDeeds).sort(
         (a, b) => a.number - b.number,
       )) {
+        const officialArea = titleDeed.parcels
+          .map((parcel) => parcelAreas[parcel.id].officialAreaM2)
+          .reduce((p, a) => p + a, 0);
+        const coveredArea = titleDeed.parcels
+          .map((parcel) => parcelAreas[parcel.id].coveredAreaM2)
+          .reduce((p, a) => p + a, 0);
         prev.push({
           zoningTitle: zoning.title,
           id: titleDeed.id.toString(),
           number: titleDeed.number.toString(),
           parcels: titleDeed.parcels.map((parcel) => parcel.label).join(', '),
-          coveredAreaM2: titleDeed.parcels
-            .map((parcel) => parcelAreas[parcel.id].coveredAreaM2)
-            .reduce((p, a) => p + a, 0),
+          officialAreaM2: officialArea,
+          coveredAreaM2: coveredArea,
+          coveredAreaPerc: Math.ceil((coveredArea / officialArea) * 100),
           owners: (titleDeed.owners.map((owner) => owner.label) || []).join(
             ', ',
           ),
