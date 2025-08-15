@@ -1,22 +1,128 @@
 import { ValueType, Workbook, type Worksheet } from 'exceljs';
 import { sortParcelByLabel } from './cuzk.ts';
+import settings, { type OwnerGroup } from './settings.ts';
 import type { Owner, Parcel, ParcelAreas, TitleDeed, Zoning } from './store.ts';
 
 export const getWorkbook = ({
   zonings,
   owners,
+  ownerGroupsByParcel,
   parcelAreas,
 }: {
   zonings: Zoning[];
   owners: Owner[];
+  ownerGroupsByParcel: { [parcelId: string]: OwnerGroup };
   parcelAreas: { [parcelId: string]: ParcelAreas };
 }): Workbook => {
   const workbook = new Workbook();
   addParcelSheet(zonings, parcelAreas, { workbook });
   addTitleDeedSheet(zonings, parcelAreas, { workbook });
   addOwnerSheet(owners, { workbook });
+  addOwnerGroupSheet(zonings, ownerGroupsByParcel, parcelAreas, { workbook });
   addZoningSheet(zonings, { workbook });
   return workbook;
+};
+
+const getTitleDeedsAndParcelsByZoning = (titleDeeds: TitleDeed[]) => {
+  const titleDeedsByZoning: Record<string, TitleDeed[]> = {};
+  const zonings: Record<string, Zoning> = {};
+  for (const titleDeed of titleDeeds) {
+    const zoning = titleDeed.zoning;
+    if (!(zoning.id in zonings)) {
+      zonings[zoning.id] = zoning;
+      titleDeedsByZoning[zoning.id] = [];
+    }
+    titleDeedsByZoning[zoning.id].push(titleDeed);
+  }
+  const zoningsList = Object.values(zonings).sort((a, b) =>
+    a.title.localeCompare(b.title),
+  );
+  let numParcels = 0;
+  const parcels = zoningsList
+    .map((zoning) => {
+      const parcels = titleDeedsByZoning[zoning.id]
+        .reduce((prev: Parcel[], td) => {
+          prev.push(...td.parcels);
+          return prev;
+        }, [])
+        .sort(sortParcelByLabel);
+      numParcels += parcels.length;
+      return `${zoning.title}: ${parcels.map((p) => p.label).join(', ')}`;
+    })
+    .join('; ');
+
+  return {
+    titleDeeds: zoningsList
+      .map((zoning) => {
+        const titleDeeds = titleDeedsByZoning[zoning.id].sort(
+          (a, b) => a.number - b.number,
+        );
+        return `${zoning.title}: ${titleDeeds.map((td) => td.number).join(', ')}`;
+      })
+      .join('; '),
+    numTitleDeeds: titleDeeds.length,
+    parcels,
+    numParcels,
+  };
+};
+
+const addOwnerGroupSheet = (
+  zonings: Zoning[],
+  ownerGroupsByParcel: { [parcelId: string]: OwnerGroup },
+  parcelAreas: { [parcelId: string]: ParcelAreas },
+  { workbook }: { workbook: Workbook },
+) => {
+  const sheet = workbook.addWorksheet('Typy vlastníků', {
+    views: [{ state: 'frozen', xSplit: 1, ySplit: 1 }],
+  });
+  sheet.columns = [
+    { header: 'Typ vlastníka', key: 'ownerGroupTitle' },
+    { header: 'Počet LV', key: 'numTitleDeeds' },
+    { header: 'Počet parcel', key: 'numParcels' },
+    { header: 'Překrytí parcel [m²]', key: 'coveredAreaM2' },
+    { header: 'LV', key: 'titleDeeds' },
+    { header: 'Parcely', key: 'parcels' },
+  ];
+  const usedGrouIds = new Set(
+    Object.values(ownerGroupsByParcel).map((g) => g.groupId),
+  );
+  const usedGroups = Object.values(settings.ownerGroups).filter((g) =>
+    usedGrouIds.has(g.groupId),
+  );
+  const rows: Record<string, string | number | undefined>[] = usedGroups.map(
+    (ownerGroup) => {
+      const parcelIds = Object.keys(ownerGroupsByParcel).filter(
+        (parcelId) =>
+          ownerGroupsByParcel[parcelId].groupId === ownerGroup.groupId,
+      );
+      const parcels = zonings.reduce((prev: Parcel[], zoning) => {
+        prev.push(...zoning.parcels.filter((p) => parcelIds.includes(p.id)));
+        return prev;
+      }, []);
+      const titleDeeds = parcels.reduce((prev: TitleDeed[], parcel) => {
+        if (parcel.titleDeed && !prev.includes(parcel.titleDeed)) {
+          prev.push(parcel.titleDeed);
+        }
+        return prev;
+      }, []);
+      const titleDeedsAndParcels = getTitleDeedsAndParcelsByZoning(titleDeeds);
+      return {
+        ownerGroupTitle: ownerGroup.label,
+        numTitleDeeds: titleDeeds.length,
+        numParcels: parcels.length,
+        coveredAreaM2: parcels.reduce(
+          (prev, parcel) => prev + parcelAreas[parcel.id].coveredAreaM2,
+          0,
+        ),
+        titleDeeds: titleDeedsAndParcels.titleDeeds,
+        parcels: titleDeedsAndParcels.parcels,
+      };
+    },
+  );
+  sheet.addRows(rows);
+  sheet.getRow(1).font = { bold: true };
+  adjustWidths(sheet);
+  return sheet;
 };
 
 const addZoningSheet = (
@@ -153,41 +259,14 @@ const addOwnerSheet = (
   );
   const rows: Record<string, string | number | undefined>[] = sortedOwners.map(
     (owner) => {
-      const titleDeedsByZoning: Record<string, TitleDeed[]> = {};
-      const zonings: Record<string, Zoning> = {};
-      for (const titleDeed of owner.titleDeeds) {
-        const zoning = titleDeed.zoning;
-        if (!(zoning.id in zonings)) {
-          zonings[zoning.id] = zoning;
-          titleDeedsByZoning[zoning.id] = [];
-        }
-        titleDeedsByZoning[zoning.id].push(titleDeed);
-      }
-      const zoningsList = Object.values(zonings).sort((a, b) =>
-        a.title.localeCompare(b.title),
+      const titleDeedsAndParcels = getTitleDeedsAndParcelsByZoning(
+        owner.titleDeeds,
       );
       return {
         ownerLabel: owner.label,
         id: owner.id.toString(),
-        titleDeeds: zoningsList
-          .map((zoning) => {
-            const titleDeeds = titleDeedsByZoning[zoning.id].sort(
-              (a, b) => a.number - b.number,
-            );
-            return `${zoning.title}: ${titleDeeds.map((td) => td.number).join(', ')}`;
-          })
-          .join('; '),
-        parcels: zoningsList
-          .map((zoning) => {
-            const parcels = titleDeedsByZoning[zoning.id]
-              .reduce((prev: Parcel[], td) => {
-                prev.push(...td.parcels);
-                return prev;
-              }, [])
-              .sort(sortParcelByLabel);
-            return `${zoning.title}: ${parcels.map((p) => p.label).join(', ')}`;
-          })
-          .join('; '),
+        titleDeeds: titleDeedsAndParcels.titleDeeds,
+        parcels: titleDeedsAndParcels.parcels,
       };
     },
   );

@@ -593,17 +593,35 @@ export const getTitleDeedNumbersByZoning = memoize(
   },
 );
 
-export const getMapLegendOwnerGroups = createAppSelector(
+export const getOwnerGroupsByParcel = createAppSelector(
   [(state) => state.parcelFeatures, (state) => state.ownerTypesTimestamp],
-  (parcelFeatures, _ownerTypesTimestamp): { [groupId: string]: OwnerGroup } => {
-    const usedGroupIds = new Set<string>([]);
-    for (const parcel of Object.values(parcelFeatures || {})) {
-      const ownerGroupId = parcel.get('ownerGroup') as string | undefined;
-      if (ownerGroupId != null) {
-        usedGroupIds.add(ownerGroupId);
-      } else {
-        usedGroupIds.add('default');
+  (
+    parcelFeatures,
+    _ownerTypesTimestamp,
+  ): { [parcelId: string]: OwnerGroup } => {
+    const result: { [parcelId: string]: OwnerGroup } = {};
+    if (parcelFeatures) {
+      for (const [parcelId, parcel] of Object.entries(parcelFeatures || {})) {
+        const ownerGroupId = (parcel.get('ownerGroup') || 'default') as string;
+        const ownerGroup = settings.ownerGroups[ownerGroupId];
+        assertIsDefined(ownerGroup);
+        result[parcelId] = ownerGroup;
       }
+    }
+    return result;
+  },
+);
+
+export const getMapLegendOwnerGroups = createAppSelector(
+  [getOwnerGroupsByParcel, (state) => state.ownerTypesTimestamp],
+  (
+    ownerGroupsByParcel,
+    _ownerTypesTimestamp,
+  ): { [groupId: string]: OwnerGroup } => {
+    const usedGroupIds = new Set<string>([]);
+    for (const ownerGroup of Object.values(ownerGroupsByParcel)) {
+      const ownerGroupId = ownerGroup.groupId;
+      usedGroupIds.add(ownerGroupId);
     }
     return Object.fromEntries(
       Object.entries(settings.ownerGroups).filter(([groupId, _]) =>

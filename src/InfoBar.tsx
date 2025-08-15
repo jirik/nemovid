@@ -17,6 +17,7 @@ import {
   getCodeLists,
   getMapLayers,
   getMapLegendOwnerGroups,
+  getOwnerGroupsByParcel,
   getOwners,
   getParcelCoveredAreas,
   getParcelStats,
@@ -117,6 +118,7 @@ const ParcelsSection = () => {
   const zonings = useAppStore(getZonings);
   const owners = useAppStore(getOwners);
   const parcelAreas = useAppStore(getParcelCoveredAreas);
+  const ownerGroupsByParcel = useAppStore(getOwnerGroupsByParcel);
 
   let content: ReactNode = null;
   if (parcels == null) {
@@ -134,6 +136,7 @@ const ParcelsSection = () => {
             const workbook = getWorkbook({
               zonings: Object.values(zonings),
               parcelAreas,
+              ownerGroupsByParcel,
               owners,
             });
             const buffer = await workbook.xlsx.writeBuffer();
