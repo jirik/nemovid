@@ -57,8 +57,8 @@ import settings from './settings.ts';
 import {
   type State,
   getAreConstrnFeaturesLoaded,
+  getCovers,
   getFilteredParcels,
-  getImportantCovers,
   getMainExtentFeatures,
   getMainExtents,
   getTitleDeedNumbersByZoning,
@@ -90,7 +90,7 @@ const App = () => {
   const highlightedParcelId = useAppStore((state) => state.highlightedParcel);
   const parcels = useAppStore(getFilteredParcels).features;
   const titleDeedNumbersByZoning = useAppStore(getTitleDeedNumbersByZoning);
-  const covers = useAppStore(getImportantCovers);
+  const covers = useAppStore(getCovers);
   const mapRef = useRef<OlMap | null>(null);
   const constrnLayersRef = useRef<ContrnLayers | null>(null);
   const constrnExtentLayerRef = useRef<VectorLayer | null>(null);
@@ -523,7 +523,7 @@ const App = () => {
     const coverSource = coverLayer.getSource();
     assertIsDefined(coverSource);
     coverSource.clear(true);
-    coverSource.addFeatures(Object.values(covers || {}));
+    coverSource.addFeatures(covers);
   }, [covers]);
 
   useEffect(() => {

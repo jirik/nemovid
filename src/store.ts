@@ -468,6 +468,22 @@ export const getParcels = createAppSelector([getZonings], (zonings) => {
   return parcels;
 });
 
+export const getCovers = createAppSelector(
+  [getImportantCovers, getParcels],
+  (coverFeatures, parcels) => {
+    const result: Feature[] = [];
+    if (parcels) {
+      for (const cover of Object.values(coverFeatures || {})) {
+        const parcelId = cover.get('parcelId') as string;
+        if (parcelId in parcels) {
+          result.push(cover);
+        }
+      }
+    }
+    return result;
+  },
+);
+
 export const getOwners = createAppSelector([getZonings], (zonings) => {
   if (zonings == null) {
     return null;
