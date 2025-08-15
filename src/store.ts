@@ -211,7 +211,7 @@ export type ParcelAreas = {
   coveredAreaPerc: number;
 };
 
-export const getParcelCoveredAreas = createAppSelector(
+export const getImportantCovers = createAppSelector(
   [
     getAreParcelCoversLoaded,
     (state) => state.coverNarrownessTolerance,
@@ -223,51 +223,99 @@ export const getParcelCoveredAreas = createAppSelector(
     coverNarrownessTolerance,
     parcelFeatures,
     coverFeatures,
+  ): { [id: string]: Feature } | null => {
+    // cover is important if meets any of following conditions:
+    //   - it is wider than coverNarrownessTolerance (= wide cover)
+    //   - it covers parcel that is not covered by any wide cover and
+    //       areas of all covers of the parcel is at least 10 % of parcel's area
+
+    if (!areParcelCoversLoaded) {
+      return null;
+    }
+    assertIsDefined(parcelFeatures);
+    assertIsDefined(coverFeatures);
+
+    const importantCovers: { [id: string]: Feature } = {};
+    const parcelsCoveredByImportantCovers: { [id: string]: Feature } = {};
+    const narrowCoversByParcel: { [id: string]: { [id: string]: Feature } } =
+      {};
+
+    for (const [coverId, cover] of Object.entries(coverFeatures)) {
+      const parcelId = cover.get('parcelId') as string;
+      const narrowness = cover.get('narrowness') as number;
+      if (narrowness <= coverNarrownessTolerance) {
+        if (!(parcelId in narrowCoversByParcel)) {
+          narrowCoversByParcel[parcelId] = {};
+        }
+        narrowCoversByParcel[parcelId][coverId] = cover;
+      } else {
+        importantCovers[coverId] = cover;
+        parcelsCoveredByImportantCovers[parcelId] = parcelFeatures[parcelId];
+      }
+    }
+
+    for (const [parcelId, narrowCovers] of Object.entries(
+      narrowCoversByParcel,
+    )) {
+      if (parcelId in parcelsCoveredByImportantCovers) {
+        continue;
+      }
+      const areaCoveredByNarrowCovers = Object.values(narrowCovers)
+        .map((c) => c.get('area') as number)
+        .reduce((p, a) => p + a, 0);
+      const parcel = parcelFeatures[parcelId];
+      const officialArea = parcel.get(ParcelOfficialAreaM2PropName) as number;
+
+      // in case of small parcels that are covered only by narrow covers by at least 10 %,
+      // take narrow covers into account
+      if (areaCoveredByNarrowCovers / officialArea >= 0.1) {
+        for (const [coverId, narrowCover] of Object.entries(narrowCovers)) {
+          importantCovers[coverId] = narrowCover;
+        }
+      }
+    }
+    return importantCovers;
+  },
+);
+
+export const getParcelCoveredAreas = createAppSelector(
+  [
+    getAreParcelCoversLoaded,
+    (state) => state.parcelFeatures,
+    getImportantCovers,
+  ],
+  (
+    areParcelCoversLoaded,
+    parcelFeatures,
+    coverFeatures,
   ): { [id: string]: ParcelAreas } | null => {
     if (!areParcelCoversLoaded) {
       return null;
     }
-    const result: { [id: string]: ParcelAreas } = {};
     assertIsDefined(parcelFeatures);
     assertIsDefined(coverFeatures);
-
-    const narrowAreasM2: { [id: string]: number } = {};
+    const result: { [id: string]: ParcelAreas } = Object.fromEntries(
+      Object.keys(parcelFeatures).map((parcelId) => [
+        parcelId,
+        {
+          coveredAreaM2: 0,
+          coveredAreaPerc: 0,
+        },
+      ]),
+    );
 
     for (const cover of Object.values(coverFeatures)) {
       const parcelId = cover.get('parcelId') as string;
-      if (!(parcelId in result)) {
-        result[parcelId] = {
-          coveredAreaM2: 0,
-          coveredAreaPerc: 0,
-        };
-        narrowAreasM2[parcelId] = 0;
-      }
       const coverArea = cover.get('area') as number;
-      const narrowness = cover.get('narrowness') as number;
-      if (narrowness < coverNarrownessTolerance) {
-        narrowAreasM2[parcelId] += coverArea;
-      } else {
-        result[parcelId].coveredAreaM2 += coverArea;
-      }
+      result[parcelId].coveredAreaM2 += coverArea;
     }
 
     for (const [parcelId, parcelAreas] of Object.entries(result)) {
       const parcel = parcelFeatures[parcelId];
       const officialArea = parcel.get(ParcelOfficialAreaM2PropName) as number;
-      const totalCoveredArea =
-        parcelAreas.coveredAreaM2 + narrowAreasM2[parcelId];
-
-      // in case of small parcels that are covered only by narrow covers by at least 10 %,
-      // take area of narrow covers into account
-      let safeCoveredArea = parcelAreas.coveredAreaM2;
-      if (
-        parcelAreas.coveredAreaM2 === 0 &&
-        totalCoveredArea / officialArea > 0.1
-      ) {
-        safeCoveredArea = totalCoveredArea;
-      }
-
-      const coveredArea = Math.ceil(Math.min(safeCoveredArea, officialArea));
+      const coveredArea = Math.ceil(
+        Math.min(parcelAreas.coveredAreaM2, officialArea),
+      );
       const coveredAreaRatio = Math.ceil((coveredArea / officialArea) * 100);
       parcelAreas.coveredAreaM2 = coveredArea;
       parcelAreas.coveredAreaPerc = coveredAreaRatio;
@@ -418,22 +466,6 @@ export const getParcels = createAppSelector([getZonings], (zonings) => {
   }
   return parcels;
 });
-
-export const getCovers = createAppSelector(
-  [(state) => state.coverFeatures, getParcels],
-  (coverFeatures, parcels) => {
-    const result: Feature[] = [];
-    if (parcels) {
-      for (const cover of Object.values(coverFeatures || {})) {
-        const parcelId = cover.get('parcelId') as string;
-        if (parcelId in parcels) {
-          result.push(cover);
-        }
-      }
-    }
-    return result;
-  },
-);
 
 export const getOwners = createAppSelector([getZonings], (zonings) => {
   if (zonings == null) {
