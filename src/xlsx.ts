@@ -13,7 +13,7 @@ export const getWorkbook = ({
 }): Workbook => {
   const workbook = new Workbook();
   addParcelSheet(zonings, parcelAreas, { workbook });
-  addTitleDeedSheet(zonings, { workbook });
+  addTitleDeedSheet(zonings, parcelAreas, { workbook });
   addOwnerSheet(owners, { workbook });
   addZoningSheet(zonings, { workbook });
   return workbook;
@@ -93,6 +93,7 @@ const addParcelSheet = (
 
 const addTitleDeedSheet = (
   zonings: Zoning[],
+  parcelAreas: { [parcelId: string]: ParcelAreas },
   { workbook }: { workbook: Workbook },
 ) => {
   const sheet = workbook.addWorksheet('Listy vlastnictví', {
@@ -103,6 +104,7 @@ const addTitleDeedSheet = (
     { header: 'ID LV', key: 'id' },
     { header: 'Číslo LV', key: 'number' },
     { header: 'Parcely', key: 'parcels' },
+    { header: 'Překryv parcel [m²]', key: 'coveredAreaM2' },
     { header: 'Vlastníci', key: 'owners' },
   ];
   const rows: Record<string, string | number | undefined>[] = zonings.reduce(
@@ -115,6 +117,9 @@ const addTitleDeedSheet = (
           id: titleDeed.id.toString(),
           number: titleDeed.number.toString(),
           parcels: titleDeed.parcels.map((parcel) => parcel.label).join(', '),
+          coveredAreaM2: titleDeed.parcels
+            .map((parcel) => parcelAreas[parcel.id].coveredAreaM2)
+            .reduce((p, a) => p + a, 0),
           owners: (titleDeed.owners.map((owner) => owner.label) || []).join(
             ', ',
           ),
