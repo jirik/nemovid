@@ -3,12 +3,13 @@ import re
 import zipfile
 from dataclasses import asdict
 from datetime import date, datetime
+from enum import StrEnum
 from typing import Annotated, Optional
 from urllib.parse import urljoin
 
 import requests
-from fastapi import Body, FastAPI
-from pydantic import BaseModel, HttpUrl
+from fastapi import Body, FastAPI, HTTPException, Path
+from pydantic import BaseModel, Field, HttpUrl
 
 from common.files import static_url_to_file_path
 from common.settings import settings
@@ -39,7 +40,6 @@ class CadastralImport(BaseModel):
             "model": list[CadastralImport],
             "description": "List of VFK imports in database",
         },
-        404: {"description": "Directory does not exist"},
     },
 )
 async def list_db_imports():
@@ -253,3 +253,170 @@ async def get_zoning_title_deeds_ownership(
             )
         )
     return result
+
+
+class ParcelNumberingType(StrEnum):
+    BUILDING = "Stavební parcela"
+    LAND = "Pozemková parcela"
+
+
+class Parcel(BaseModel, title="Parcela"):
+    id: int = Field(description="id parcely, VFK par.id")
+    zoning_code: int = Field(description="kód katastrálního území, VFK par.katuze_kod")
+    original_zoning_code: Optional[int] = Field(
+        description="VFK par.katuze_kod_puv", default=None
+    )
+    type: str = Field(description="typ parcely (PKN/PZE), VFK par.par_type")
+    simplified_registry_source: Optional[str] = Field(
+        description="zdroj parcel ZE, VFK zdpaze.nazev. Vyplněno pokud je typ parcely PZE",
+        default=None,
+    )
+    numbering_type: Optional[ParcelNumberingType] = Field(
+        description="druh číslování parcely (Stavební parcela/Pozemková parcela), VFK par.druh_cislovani_par. Vyplněno pokud má dané katastrální územi více než jednu čiselnou řadu (VFK katuze.ciselna_rada)"
+    )
+    root_number: int = Field(
+        description="kmenové číslo parcely, VFK par.kmenove_cislo_par"
+    )
+    subdivision_number: Optional[int] = Field(
+        description="poddělení čísla parcely, VFK par.poddeleni_cisla_par", default=None
+    )
+    part: Optional[int] = Field(
+        description="díl parcely, VFK par.dil_parcely", default=None
+    )
+
+
+class LegalPerson(BaseModel, title="Oprávněný subjekt"):
+    id: str = Field(description="anonymizované id oprávněného subjektu, VFK opsub.id")
+    type_group: str = Field(
+        description="skupina oprávněného objektu (OFO=fyzická osoba, BSM=společné jmění manželů, OPO=právnická osoba), VFK opsub.opsub_type"
+    )
+    type_code: int = Field(
+        description="kód typu oprávněného subjektu, VFK opsub.charos_kod"
+    )
+    type: str = Field(description="název typu oprávněného subjektu, VFK charos.nazev")
+    ico: Optional[int] = Field(
+        description="IČO (1=ČR), VFK opsub.owner_ico", default=None
+    )
+
+
+class Ownership(BaseModel, title="Vlastnictví"):
+    id: int = Field(description="id vlastnictví, VFK vla.id")
+    legal_relationship_type: str = Field(
+        description="typ právního vztahu, VFK typrav.nazev"
+    )
+    owner: LegalPerson = Field(description="oprávněný subjekt, VFK opsub")
+
+
+class TitleDeed(BaseModel, title="List vlastnictví"):
+    id: int = Field(description="id listu vlastnictví, VFK tel.id")
+    number: int = Field(description="číslo listu vlastnictví, VFK tel.cislo_tel")
+    zoning_code: int = Field(description="kód katastrálního území, VFK katuze.kod")
+    zoning_name: str = Field(description="název katastrálního území, VFK katuze.nazev")
+    parcels: list[Parcel] = Field(description="parcely, VFK par")
+    ownership: list[Ownership] = Field(description="parcely, VFK vla")
+
+
+class TitleDeedResponse(BaseModel):
+    valid_date: date = Field(description="datum platnosti dat")
+    title_deed: TitleDeed = Field(description="list vlastnictví, VFK tel")
+
+
+@app.get(
+    "/api/vfk/v1/db/zonings/{zoning_code}/title-deeds/{title_deed_number}",
+    summary="Informace o listu vlastnictví",
+    operation_id="get_zoning_title_deed",
+    description="Informace o listu vlastnictví, vč. parcel a vlastnictví",
+    response_model=TitleDeedResponse,
+    response_model_exclude_none=True,
+    responses={
+        200: {
+            "content": {
+                "application/json": {
+                    "example": {
+                        "valid_date": "2025-07-01",
+                        "title_deed": {
+                            "id": 882898702,
+                            "number": 51,
+                            "zoning_code": 612065,
+                            "zoning_name": "Horní Heršpice",
+                            "parcels": [
+                                {
+                                    "id": 1428508702,
+                                    "zoning_code": 612065,
+                                    "type": "PKN",
+                                    "root_number": 625,
+                                }
+                            ],
+                            "ownership": [
+                                {
+                                    "id": 1830315702,
+                                    "legal_relationship_type": "Vlastnické právo",
+                                    "owner": {
+                                        "id": "+3imV1XyHaaXUw4ojHOAcQXBGIskbnT6lTubNuyliBaZyVfFz1qyzKDyWvt+5vWNzHR93WFtU43XtroOWeV4DowqU10ybQNJzkY6iY6KkA0=",
+                                        "type_group": "BSM",
+                                        "type_code": 1,
+                                        "type": "společné jmění manželů nebo partnerů",
+                                    },
+                                },
+                                {
+                                    "id": 26968164010,
+                                    "legal_relationship_type": "Vlastnické právo",
+                                    "owner": {
+                                        "id": "+3imV1XyHaaXUw4ojHOAcbea2dNGuQR1CgggWd476kRpG0C87ejgRNKlmPE1l4O93KXPeW6MuChtd1Hwks8WGoJw1mo9UKRU8RFPjY1IDM4=",
+                                        "type_group": "OFO",
+                                        "type_code": 2,
+                                        "type": "oprávněná fyzická osoba",
+                                    },
+                                },
+                            ],
+                        },
+                    }
+                }
+            },
+        }
+    },
+)
+async def get_zoning_title_deed(
+    zoning_code: Annotated[
+        int,
+        Path(
+            examples=[612065],
+            title="kód katastrálního území",
+            description="kód katastrálního území",
+        ),
+    ],
+    title_deed_number: Annotated[
+        int,
+        Path(
+            examples=[51],
+            title="číslo listu vlastnictví",
+            description="číslo listu vlastnictví",
+        ),
+    ],
+):
+    try:
+        db_title_deed, valid_date = db_util.get_zoning_title_deed(
+            zoning_code, title_deed_number
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if not db_title_deed:
+        raise HTTPException(status_code=404, detail="Title deed not found.")
+
+    title_deed: TitleDeed = TitleDeed(
+        id=db_title_deed.id,
+        number=db_title_deed.number,
+        zoning_code=db_title_deed.zoning_code,
+        zoning_name=db_title_deed.zoning_name,
+        parcels=[Parcel(**asdict(parcel)) for parcel in db_title_deed.parcels],
+        ownership=[
+            Ownership(
+                id=ownership.id,
+                legal_relationship_type=ownership.legal_relationship_type,
+                owner=LegalPerson(**asdict(ownership.owner)),
+            )
+            for ownership in db_title_deed.ownership
+        ],
+    )
+    return TitleDeedResponse(valid_date=valid_date, title_deed=title_deed)
