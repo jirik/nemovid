@@ -17,7 +17,7 @@ from db import util as db_util
 
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI()
+app = FastAPI(root_path="/api/vfk")
 
 
 @app.get("/api/vfk/v1/hello")

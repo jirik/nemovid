@@ -11,6 +11,11 @@ export default defineConfig({
       '/api/files': 'http://localhost:8000',
       '/api/ogr2ogr': 'http://localhost:8001',
       '/api/qgis': 'http://localhost:8002',
+      '^\/api\/vfk\/(openapi\.json|docs|redoc)': {
+        target: 'http://localhost:8003',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/vfk/, ''),
+      },
       '/api/vfk': 'http://localhost:8003',
       '/static/files': 'http://localhost:8000',
     },
