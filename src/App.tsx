@@ -53,6 +53,7 @@ import { createClient as createOgr2ogrClient } from './server/ogr2ogr/client';
 import { fixGeometries } from './server/qgis';
 import { createClient as createQgisClient } from './server/qgis/client';
 import { getZoningTitleDeedsOwnership } from './server/vfk';
+import { createClient as createVfkClient } from './server/vfk/client';
 import settings from './settings.ts';
 import {
   type State,
@@ -495,7 +496,7 @@ const App = () => {
       ) {
         return;
       }
-      const vfkClient = createFilesClient({
+      const vfkClient = createVfkClient({
         baseUrl: settings.publicUrl,
       });
       const response = await getZoningTitleDeedsOwnership({
