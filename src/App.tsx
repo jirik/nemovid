@@ -167,6 +167,10 @@ const App = () => {
       parcelLayerRef.current = parcelLayer;
 
       const constrnExtentLayer = new VectorLayer({
+        properties: {
+          id: 'constrnExtent',
+        },
+
         source: new VectorSource(),
         style: extentStyle,
         updateWhileAnimating: true,

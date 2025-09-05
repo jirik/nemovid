@@ -86,16 +86,19 @@ const initialState: State = {
     landUse: null,
     landType: null,
   },
-  mapLayers: ['parcels', 'constrnFill', 'constrnStroke', 'covers'].reduce(
-    (prev: State['mapLayers'], id) => {
-      prev[id] = {
-        id,
-        visible: true,
-      };
-      return prev;
-    },
-    {},
-  ),
+  mapLayers: [
+    'parcels',
+    'constrnFill',
+    'constrnStroke',
+    'constrnExtent',
+    'covers',
+  ].reduce((prev: State['mapLayers'], id) => {
+    prev[id] = {
+      id,
+      visible: true,
+    };
+    return prev;
+  }, {}),
 };
 
 type Setter = {

@@ -340,6 +340,19 @@ const MapLegend = React.memo(() => {
           <div
             className={styles.mapLegendPolygon}
             style={{
+              backgroundColor: 'rgba(255,255,255,0.4)',
+              borderColor: '#c513cd',
+              borderWidth: 2,
+              borderStyle: 'dashed',
+            }}
+          />
+          <div>
+            <div>Pravoúhlá oblast plánované výstavby</div>
+            <MapLayerVisibilitySwitch mapLayerIds={['constrnExtent']} />
+          </div>
+          <div
+            className={styles.mapLegendPolygon}
+            style={{
               backgroundColor: 'rgba(00,200,00,0.4)',
               borderColor: '#00aa00',
               borderWidth: 1,
