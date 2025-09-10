@@ -333,18 +333,27 @@ export function* setParcelIntersections({
       polygonIdx < parcelIntersection.getNumGeometries();
       polygonIdx++
     ) {
-      const polygon = parcelIntersection.getGeometryN(polygonIdx);
-      const mic = new MaximumInscribedCircle(polygon, 0.01);
-      const narrowness: number = mic.getRadiusLine().getLength();
-      const polygonFeature: GeoJSONFeature = {
-        type: 'Feature',
-        geometry: geojsonWriter.write(polygon),
-        properties: {
-          narrowness,
-        },
-      };
-      coverGeojsonFeatures.push(polygonFeature);
+      const geom = parcelIntersection.getGeometryN(polygonIdx);
+      // @ts-ignore (getGeometryType() is not exported by JSTS)
+      const geometryType = geom.getGeometryType();
+      if (geometryType === 'Polygon') {
+        const mic = new MaximumInscribedCircle(geom, 0.01);
+        const narrowness: number = mic.getRadiusLine().getLength();
+        const polygonFeature: GeoJSONFeature = {
+          type: 'Feature',
+          geometry: geojsonWriter.write(geom),
+          properties: {
+            narrowness,
+          },
+        };
+        coverGeojsonFeatures.push(polygonFeature);
+      } else {
+        console.warn(
+          `Unexpected geometry type of intersections of parcel ${parcelId}: ${geometryType}`,
+        );
+      }
     }
+
     parcel.set(ParcelCoverPropName, coverGeojsonFeatures, true);
     yield parcelIdx + 1;
   }
