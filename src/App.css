@@ -25,3 +25,9 @@ main {
   padding: 8px;
   background-color: var(--main-bg-color);
 }
+
+.testButton {
+  position: absolute;
+  top: 50px;
+  left: 50px;
+}
