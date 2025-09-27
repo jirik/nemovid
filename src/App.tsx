@@ -2,11 +2,13 @@ import '@mantine/core/styles.css';
 import 'ol/ol.css';
 import './global.css';
 import './App.css';
-import { MantineProvider, createTheme } from '@mantine/core';
+import { Button, MantineProvider, createTheme } from '@mantine/core';
 import type { Feature } from 'ol';
 import type { FeatureLike } from 'ol/Feature';
 import OlMap from 'ol/Map.js';
 import View from 'ol/View.js';
+import ScaleLine from 'ol/control/ScaleLine.js';
+import { defaults as defaultControls } from 'ol/control/defaults.js';
 import * as olExtent from 'ol/extent';
 import { GeoJSON } from 'ol/format';
 import type { GeoJSONFeatureCollection } from 'ol/format/GeoJSON';
@@ -46,6 +48,7 @@ import {
   assertMinExtentRadius,
   loadTileLayerFromWmtsCapabilities,
 } from './olutil.ts';
+import { printMap } from './print.ts';
 import { postFiles } from './server/files';
 import { createClient as createFilesClient } from './server/files/client';
 import { dxfToGeojson } from './server/ogr2ogr';
@@ -211,8 +214,13 @@ const App = () => {
       });
       coverLayerRef.current = coverLayer;
 
+      const scaleControl = new ScaleLine({
+        units: 'metric',
+      });
+
       const map = new OlMap({
         target: 'map',
+        controls: defaultControls().extend([scaleControl]),
         layers: [],
         view: new View({
           projection: 'EPSG:5514',
@@ -232,6 +240,7 @@ const App = () => {
         layer: 'KN_I',
         matrixSet: 'KN_I',
       });
+      tileLayer2.setMinZoom(16);
       const tileLayerExtent = tileLayer.getExtent();
       assertIsDefined(tileLayerExtent);
 
@@ -586,11 +595,22 @@ const App = () => {
     }
   }, [mapLayersRef]);
 
+  const bntClick = () => {
+    assertIsDefined(mapRef.current);
+    const map = mapRef.current;
+    (async () => {
+      await printMap({ map });
+    })();
+  };
+
   return (
     <MantineProvider theme={theme}>
       <main>
         <div id="map" />
         <InfoBar />
+        <Button className="printButton" onClick={bntClick} variant="filled">
+          Tisk
+        </Button>
       </main>
     </MantineProvider>
   );

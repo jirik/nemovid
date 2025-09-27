@@ -57,6 +57,7 @@ export const loadTileLayerFromWmtsCapabilities = async ({
     matrixSet: matrixSet,
   });
   assertIsDefined(options);
+  options.crossOrigin = 'anonymous';
 
   // biome-ignore lint/suspicious/noExplicitAny: it can be any type
   const layerDef = result?.Contents?.Layer?.find((layerDef: any) => {

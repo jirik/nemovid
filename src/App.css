@@ -17,6 +17,7 @@ main {
 
 #map {
   flex-grow: 1;
+  position: relative;
 }
 
 #infoBar {
@@ -24,4 +25,19 @@ main {
   min-width: 300px;
   padding: 8px;
   background-color: var(--main-bg-color);
+}
+
+.printButton {
+  position: absolute;
+  bottom: 8px;
+  right: calc(max(300px, 30vw) + 8px);
+}
+
+.loading:after {
+  content: "Probíhá příprava tisku ...";
+  box-sizing: border-box;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translateY(-50%);
 }
