@@ -8,7 +8,7 @@ from typing import Annotated, Optional
 from urllib.parse import urljoin
 
 import requests
-from fastapi import Body, FastAPI, HTTPException, Path
+from fastapi import Body, FastAPI, HTTPException, Path, Query
 from pydantic import BaseModel, Field, HttpUrl
 
 from common.files import static_url_to_file_path
@@ -420,3 +420,87 @@ async def get_zoning_title_deed(
         ],
     )
     return TitleDeedResponse(valid_date=valid_date, title_deed=title_deed)
+
+
+class ParcelOwner(BaseModel):
+    id: str  # opsub.id
+    label: str
+
+
+class ParcelFeatureProperties(BaseModel):
+    par_id: int  # par.id
+    tel_id: int  # tel.id
+    lv: int  # tel.cislo_tel
+    vlastnici: list[ParcelOwner]
+
+
+class ParcelFeature(BaseModel):
+    properties: ParcelFeatureProperties
+
+
+class ParcelFeatures(BaseModel):
+    features: list[ParcelFeature]
+
+
+def get_owner_label(owner: db_util.ParcelOwner) -> str:
+    result = owner.type_group
+    if owner.ico is not None:
+        result += f" IČO {owner.ico}"
+    return result
+
+
+@app.get(
+    "/api/vfk/v1/db/parcels/features/overview",
+    summary="Get parcel features overview",
+    operation_id="get_parcel_features_overview",
+    description="List of overview information about parcel features, their title deeds, and owners",
+    response_model=ParcelFeatures,
+    response_model_exclude_none=True,
+)
+async def get_parcel_features_overview(
+    parcel_ids: Annotated[
+        str,
+        Query(
+            examples=[
+                "1587008702,1427663702,1532002702,94450448010,1430081702,1429268702,1429878702"
+            ],
+            title="pole ID parcel",
+            description="pole ID parcel",
+        ),
+    ],
+):
+    parcel_ids_num = [int(s) for s in parcel_ids.split(",")]
+    parcel_zonings = db_util.get_parcel_zoning_codes(parcel_ids_num)
+    parcels_by_zoning = {}
+    for parcel_id, zoning_id in parcel_zonings.items():
+        if zoning_id not in parcels_by_zoning:
+            parcels_by_zoning[zoning_id] = []
+        parcels_by_zoning[zoning_id].append(parcel_id)
+
+    db_results = [
+        parcel_overview
+        for zoning_code, parcel_ids in parcels_by_zoning.items()
+        for parcel_overview in db_util.get_parcel_ownership(zoning_code, parcel_ids)
+    ]
+
+    features: list[ParcelFeature] = []
+
+    for db_result in db_results:
+        features.append(
+            ParcelFeature(
+                properties=ParcelFeatureProperties(
+                    par_id=db_result.id,
+                    tel_id=db_result.title_deed_id,
+                    lv=db_result.title_deed_number,
+                    vlastnici=[
+                        ParcelOwner(
+                            id=owner.id,
+                            label=get_owner_label(owner),
+                        )
+                        for owner in db_result.owners
+                    ],
+                )
+            )
+        )
+    result = ParcelFeatures(features=features)
+    return result

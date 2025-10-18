@@ -387,3 +387,107 @@ where tel.katuze_kod = {zoning_code} and tel.cislo_tel = {title_deed_number}
         raise ValueError(ValueErrors.MORE_TITLE_DEEDS_FOUND)
     _, valid_date = _schema_to_id_and_date(schema_name)
     return (title_deeds[0] if len(title_deeds) > 0 else None), valid_date
+
+
+def get_parcel_zoning_codes(parcel_ids: list[int]) -> dict[int, int]:
+    schema_names = _get_vfk_schema_names()
+    if not schema_names:
+        return {}
+
+    rows = run_query(
+        sql.SQL(" UNION ALL ").join(
+            sql.Composed(
+                [
+                    sql.SQL(r"""
+    (
+    select id, katuze_kod
+    from {par}
+    where id = ANY({parcel_ids})
+    )
+    """).format(
+                        par=sql.Identifier(schema_name, "par"),
+                        parcel_ids=sql.Literal(parcel_ids),
+                    )
+                    for schema_name in schema_names
+                ]
+            )
+        )
+    )
+    result: dict[int, int] = {}
+    for row in rows:
+        par_id, zonind_id = row
+        result[par_id] = zonind_id
+    return result
+
+
+@dataclass(kw_only=True)
+class ParcelOwner:
+    id: str  # opsub.id
+    ico: Optional[int] = None  # opsub.owner_ico
+    type_group: str  # opsub.opsub_type
+
+
+@dataclass(kw_only=True)
+class ParcelOverview:
+    id: int  # par.id
+    title_deed_id: int  # tel.id
+    title_deed_number: int  # tel.cislo_tel
+    owners: list[ParcelOwner]
+
+
+def get_parcel_ownership(
+    zoning_code: int, parcel_ids: list[int]
+) -> list[ParcelOverview]:
+    schema_name = _get_vfk_schema_name(zoning_id=zoning_code)
+    if not schema_name:
+        raise ValueError(ValueErrors.ZONING_SCHEMA_NOT_FOUND)
+
+    rows = run_query(
+        sql.SQL("""
+select par1.id, par1.tel_id, tel1.cislo_tel,
+        (select jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
+               'opsub_type', opsub2.opsub_type,
+               'ico', opsub2.ico,
+               'opsub_id', opsub2.id
+               )))
+        from {vla_table} vla2
+                 inner join {typrav_table} typrav2 on (typrav2.kod = vla2.typrav_kod)
+                 inner join {opsub_table} opsub2 on (opsub2.id = vla2.opsub_id)
+                 inner join {charos_table} charos2 on (opsub2.charos_kod = charos2.kod)
+        where vla2.tel_id = tel1.id
+            and typrav2.tpr_kod = 2
+            and typrav2.vlastnictvi = 'a') as vlastnictvi
+from {par_table} par1
+  inner join {tel_table} tel1 on par1.tel_id = tel1.id
+where par1.id = any({parcel_ids})
+        """).format(
+            tel_table=sql.Identifier(schema_name, "tel"),
+            par_table=sql.Identifier(schema_name, "par"),
+            vla_table=sql.Identifier(schema_name, "vla"),
+            opsub_table=sql.Identifier(schema_name, "opsub"),
+            typrav_table=sql.Identifier(schema_name, "typrav"),
+            charos_table=sql.Identifier(schema_name, "charos"),
+            parcel_ids=sql.Literal(parcel_ids),
+        )
+    )
+
+    result: list[ParcelOverview] = []
+    for row in rows:
+        par_id, tel_id, cislo_tel, vlastnictvi = row
+        result.append(
+            ParcelOverview(
+                id=par_id,
+                title_deed_id=tel_id,
+                title_deed_number=cislo_tel,
+                owners=[
+                    ParcelOwner(
+                        id=vla["opsub_id"],
+                        ico=vla.get("ico"),
+                        type_group=vla["opsub_type"],
+                    )
+                    for vla in vlastnictvi
+                ],
+            )
+        )
+
+    return result
