@@ -23,4 +23,8 @@ __pycache__
 /src/settings/settings.*
 !/src/settings/settings.default.ts
 
+/viteConfigSettings.*
+!/viteConfigSettings.default.ts
+!/viteConfigSettings.type.ts
+
 /server/postgres/data

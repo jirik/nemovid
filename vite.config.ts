@@ -1,6 +1,7 @@
-import { resolve } from 'node:path';
+import {resolve} from 'node:path';
 import react from '@vitejs/plugin-react-swc';
-import { defineConfig } from 'vite';
+import {defineConfig} from 'vite';
+import settings from './viteConfigSettings.ts'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -23,6 +24,7 @@ export default defineConfig({
       },
       '/api/vfk/api': 'http://localhost:8003',
       '/static/files': 'http://localhost:8000',
+      ...settings.proxy,
     },
   },
   preview: {
