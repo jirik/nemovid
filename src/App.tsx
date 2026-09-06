@@ -299,7 +299,7 @@ const App = () => {
           baseUrl: settings.publicUrl,
         });
         const dxfResp = await postFiles({
-          body: { files: [file] },
+          body: { files: [file as unknown as string] },
           query: { label: 'dxf' },
           client: filesClient,
         });

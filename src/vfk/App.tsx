@@ -183,7 +183,7 @@ const App = () => {
         const fileNames = files.map((file) => file.name);
         filesOpened({ names: fileNames });
         const uploadResp = await postFiles({
-          body: { files },
+          body: { files: files as unknown as string[] },
           query: { label: 'vfk' },
           client: filesClient,
         });
