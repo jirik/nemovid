@@ -407,12 +407,14 @@ const App = () => {
       assertIsDefined(mainExtents);
       if (mainExtents.length > 0) {
         if (codeListsRef.current == null) {
-          const landUseCodeList = await fetchCodeList(
-            'https://services.cuzk.gov.cz/registry/codelist/LandUseValue/LandUseValue.json',
-          );
-          const landTypeCodeList = await fetchCodeList(
-            'https://services.cuzk.gov.cz/registry/codelist/LandTypeValue/LandTypeValue.json',
-          );
+          const [landUseCodeList, landTypeCodeList] = await Promise.all([
+            fetchCodeList(
+              'https://services.cuzk.gov.cz/registry/codelist/LandUseValue/LandUseValue.json',
+            ),
+            fetchCodeList(
+              'https://services.cuzk.gov.cz/registry/codelist/LandTypeValue/LandTypeValue.json',
+            ),
+          ]);
           codeListsRef.current = {
             landUse: landUseCodeList,
             landType: landTypeCodeList,
@@ -436,13 +438,11 @@ const App = () => {
             parcel.setId(parcelId);
             if (!(parcelId in parcelsDict)) {
               parcelsDict[parcelId] = parcel;
-              assertIsDefined(codeLists.landUse);
               updateCodeListProp({
                 feature: parcel,
                 codeList: codeLists.landUse,
                 propName: 'landUse',
               });
-              assertIsDefined(codeLists.landType);
               updateCodeListProp({
                 feature: parcel,
                 codeList: codeLists.landType,

@@ -199,9 +199,18 @@ type CodeListResponse = {
   };
 };
 
-export const fetchCodeList = async (url: string) => {
-  const resp = await fetch(url);
-  const respJson: CodeListResponse = (await resp.json()) as CodeListResponse;
+export const fetchCodeList = async (url: string): Promise<CodeList | null> => {
+  let respJson: CodeListResponse;
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
+    respJson = (await resp.json()) as CodeListResponse;
+  } catch (e) {
+    console.error(`Failed to fetch code list ${url}`, e);
+    return null;
+  }
   const listId = respJson.codelist.id;
   const values = respJson.codelist.containeditems.reduce(
     (prev: CodeList['values'], item) => {
@@ -250,7 +259,11 @@ export const updateCodeListProp = ({
   feature,
   propName,
   codeList,
-}: { feature: Feature; propName: string; codeList: CodeList }) => {
+}: { feature: Feature; propName: string; codeList: CodeList | null }) => {
+  if (codeList == null) {
+    feature.set(propName, NullItem.code, true);
+    return;
+  }
   const valueObj = feature.get(propName) as
     | { 'xlink:href': string }
     | { nilReason: string };
