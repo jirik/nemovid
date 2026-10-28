@@ -45,22 +45,40 @@ export const parcelsGmlToFeatures = ({ gml }: { gml: Document }): Feature[] => {
   return features;
 };
 
+const TITLE_DEEDS_CHUNK_SIZE = 300;
+
 export const getTitleDeeds = async ({
   parcels,
 }: { parcels: Feature[] }): Promise<{
   titleDeeds: Record<string, SimpleTitleDeed>;
   owners: Record<string, SimpleOwner>;
 }> => {
-  assertIsDefined(settings.parcelRestUrlTemplate);
-  const parcelIdsString = parcels.map((p) => p.getId()).join(',');
-  const infoUrl = fillTemplate(settings.parcelRestUrlTemplate, {
-    parcelIdsString,
-  });
-  const resp = await fetch(infoUrl);
-  const parcelCollection: GeoJSONFeatureCollection =
-    (await resp.json()) as GeoJSONFeatureCollection;
-  const parcelFeatures: GeoJSONFeature[] =
-    parcelCollection.features as GeoJSONFeature[];
+  const urlTemplate = settings.parcelRestUrlTemplate;
+  assertIsDefined(urlTemplate);
+  // IDs are sent in URL query, so split them into chunks to avoid
+  // 414 URI Too Long / 431 Request Header Fields Too Large
+  const parcelIds = parcels.map((p) => p.getId() as string);
+  const idChunks: string[][] = [];
+  for (let i = 0; i < parcelIds.length; i += TITLE_DEEDS_CHUNK_SIZE) {
+    idChunks.push(parcelIds.slice(i, i + TITLE_DEEDS_CHUNK_SIZE));
+  }
+  const parcelCollections: GeoJSONFeatureCollection[] = await Promise.all(
+    idChunks.map(async (idChunk): Promise<GeoJSONFeatureCollection> => {
+      const infoUrl = fillTemplate(urlTemplate, {
+        parcelIdsString: idChunk.join(','),
+      });
+      const resp = await fetch(infoUrl);
+      if (!resp.ok) {
+        throw new Error(
+          `Failed to fetch title deeds: HTTP ${resp.status} ${resp.statusText}`,
+        );
+      }
+      return (await resp.json()) as GeoJSONFeatureCollection;
+    }),
+  );
+  const parcelFeatures: GeoJSONFeature[] = parcelCollections.flatMap(
+    (c) => c.features as GeoJSONFeature[],
+  );
   const allTitleDeeds: Record<string, SimpleTitleDeed> = {};
   const allOwners: Record<string, SimpleOwner> = {};
   for (const parcel of parcels) {
