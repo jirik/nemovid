@@ -4,17 +4,17 @@ from enum import StrEnum
 from typing import Optional
 
 from psycopg import sql
-from psycopg.abc import Params, Query
+from psycopg.abc import Params, QueryNoTemplate
 
 from common import db
 from common.settings import settings
 
 
-def run_query(query: Query, params: Params | None = None) -> list:
+def run_query(query: QueryNoTemplate, params: Params | None = None) -> list:
     return db.run_query(query, params, db_uri=settings.database_url)
 
 
-def run_statement(query: Query, params: Params | None = None):
+def run_statement(query: QueryNoTemplate, params: Params | None = None):
     return db.run_statement(query, params, db_uri=settings.database_url)
 
 

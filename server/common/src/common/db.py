@@ -2,7 +2,7 @@ import logging
 from urllib.parse import parse_qs, urlencode, urlparse
 
 from psycopg import ClientCursor
-from psycopg.abc import Params, Query
+from psycopg.abc import Params, QueryNoTemplate
 from psycopg_pool import ConnectionPool
 from pydantic import PostgresDsn
 
@@ -41,7 +41,7 @@ def get_connection_pool(db_uri: PostgresDsn) -> ConnectionPool:
 
 
 def run_query(
-    query: Query, params: Params | None = None, *, db_uri: PostgresDsn
+    query: QueryNoTemplate, params: Params | None = None, *, db_uri: PostgresDsn
 ) -> list:
     pool = get_connection_pool(db_uri=db_uri)
     with pool.connection() as conn:
@@ -56,7 +56,9 @@ def run_query(
     return rows
 
 
-def run_statement(query: Query, params: Params | None = None, *, db_uri: PostgresDsn):
+def run_statement(
+    query: QueryNoTemplate, params: Params | None = None, *, db_uri: PostgresDsn
+):
     pool = get_connection_pool(db_uri=db_uri)
     with pool.connection() as conn:
         conn.autocommit = True
